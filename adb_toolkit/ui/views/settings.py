@@ -7,31 +7,43 @@ from typing import TYPE_CHECKING
 import flet as ft
 
 from adb_toolkit.core.settings import DARK, LIGHT
-from adb_toolkit.ui.theme import FONT_REGULAR, FONT_SEMIBOLD, PALETTES, Palette, palette
+from adb_toolkit.ui.theme import (
+    FONT_REGULAR,
+    FONT_SEMIBOLD,
+    PALETTES,
+    RADIUS_CARD,
+    RADIUS_INSET,
+    RADIUS_TILE,
+    SECTION_GAP,
+    Palette,
+    palette,
+)
 from adb_toolkit.ui.views.base import View
-from adb_toolkit.ui.widgets import status_dot, text, title_block
+from adb_toolkit.ui.widgets import hue_color, ripple, status_dot, text, title_block
 
 if TYPE_CHECKING:
     from adb_toolkit.ui.window import Window
 
-_THEME_LABELS = ((LIGHT, "Light"), (DARK, "Dark"))
+# mode, label, icon, hue
+_THEME_LABELS = (
+    (LIGHT, "Light", ft.Icons.LIGHT_MODE_OUTLINED, "amber"),
+    (DARK, "Dark", ft.Icons.DARK_MODE_OUTLINED, "violet"),
+)
 _PREVIEW_WIDTH = 240
 _PREVIEW_HEIGHT = 140
+_CARD_PADDING = 16
 
 
 class SettingsView(View):
     def __init__(self, window: Window) -> None:
         super().__init__(window)
-        colors = palette()
         self.control = ft.Column(
             [
-                title_block("Settings", "Choose how the window looks."),
-                ft.Container(height=32),
-                text("Appearance", size=16, font=FONT_SEMIBOLD),
-                ft.Container(height=4),
-                text("The preview shows the same layout in each theme.", color=colors.muted),
-                ft.Container(height=20),
-                ft.Row([self._choice(mode, label) for mode, label in _THEME_LABELS], spacing=20),
+                title_block("Settings"),
+                ft.Container(height=SECTION_GAP),
+                text("Appearance", size=18, font=FONT_SEMIBOLD),
+                ft.Container(height=16),
+                ft.Row([self._choice(*entry) for entry in _THEME_LABELS], spacing=20),
             ],
             expand=True,
             spacing=0,
@@ -41,16 +53,18 @@ class SettingsView(View):
     async def activate(self) -> None:
         self.window.update()
 
-    def _choice(self, mode: str, label: str) -> ft.Container:
+    def _choice(self, mode: str, label: str, icon: str, hue: str) -> ft.Container:
         colors = palette()
         selected = self.window.session.settings.theme_mode == mode
         indicator = ft.Icons.RADIO_BUTTON_CHECKED if selected else ft.Icons.RADIO_BUTTON_UNCHECKED
         return ft.Container(
-            width=_PREVIEW_WIDTH + 28,
-            padding=14,
-            border_radius=16,
+            width=_PREVIEW_WIDTH + 2 * _CARD_PADDING,
+            padding=_CARD_PADDING,
+            border_radius=RADIUS_CARD,
             bgcolor=colors.panel,
             border=ft.Border.all(2 if selected else 1, colors.accent if selected else colors.line),
+            ink=True,
+            ink_color=ripple(),
             on_click=lambda _, value=mode: self.window.page.run_task(self.window.set_theme_mode, value),
             content=ft.Column(
                 [
@@ -59,6 +73,7 @@ class SettingsView(View):
                     ft.Row(
                         [
                             ft.Icon(indicator, size=18, color=colors.accent if selected else colors.muted),
+                            ft.Icon(icon, size=18, color=hue_color(hue)),
                             text(label, size=14, font=FONT_SEMIBOLD if selected else FONT_REGULAR),
                         ],
                         spacing=10,
@@ -83,11 +98,11 @@ def _layout_preview(colors: Palette) -> ft.Container:
         padding=ft.Padding.symmetric(horizontal=9, vertical=12),
         content=ft.Column(
             [
-                ft.Container(width=16, height=16, border_radius=5, bgcolor=colors.accent),
+                ft.Container(width=16, height=16, border_radius=RADIUS_INSET, bgcolor=colors.accent),
                 ft.Container(height=8),
                 ft.Container(
                     height=16,
-                    border_radius=6,
+                    border_radius=8,
                     bgcolor=colors.accent_soft,
                     padding=ft.Padding.symmetric(horizontal=6),
                     alignment=ft.Alignment.CENTER_LEFT,
@@ -112,7 +127,7 @@ def _layout_preview(colors: Palette) -> ft.Container:
                 ft.Container(
                     width=92,
                     height=16,
-                    border_radius=6,
+                    border_radius=8,
                     bgcolor=colors.panel,
                     border=ft.Border.all(1, colors.line),
                     alignment=ft.Alignment.CENTER_LEFT,
@@ -125,7 +140,7 @@ def _layout_preview(colors: Palette) -> ft.Container:
     )
     card = ft.Container(
         height=54,
-        border_radius=8,
+        border_radius=RADIUS_INSET,
         bgcolor=colors.panel,
         border=ft.Border.all(1, colors.line),
         padding=ft.Padding.symmetric(horizontal=10, vertical=9),
@@ -143,7 +158,7 @@ def _layout_preview(colors: Palette) -> ft.Container:
     return ft.Container(
         width=_PREVIEW_WIDTH,
         height=_PREVIEW_HEIGHT,
-        border_radius=12,
+        border_radius=RADIUS_TILE,
         border=ft.Border.all(1, colors.line),
         clip_behavior=ft.ClipBehavior.HARD_EDGE,
         content=ft.Row(

@@ -5,24 +5,26 @@ from collections.abc import Callable
 import flet as ft
 
 from adb_toolkit.config import APP_VERSION
-from adb_toolkit.ui.theme import FONT_REGULAR, FONT_SEMIBOLD, palette
-from adb_toolkit.ui.widgets import brand_mark, hairline, text
+from adb_toolkit.ui.theme import CONTROL_HEIGHT, FONT_REGULAR, FONT_SEMIBOLD, MOTION_STATE_MS, palette
+from adb_toolkit.ui.widgets import brand_mark, hairline, hue_color, ripple, text
 
+# key, label, icon, hue. The hue is the area's identity colour, shown on its icon.
 TOOL_ITEMS = (
-    ("apps", "Apps", ft.Icons.APPS),
-    ("adb", "ADB Tools", ft.Icons.TERMINAL),
-    ("fastboot", "Fastboot Tools", ft.Icons.FLASH_ON),
+    ("apps", "Apps", ft.Icons.APPS, "blue"),
+    ("adb", "ADB Tools", ft.Icons.TERMINAL, "green"),
+    ("fastboot", "Fastboot Tools", ft.Icons.FLASH_ON, "violet"),
 )
 APP_ITEMS = (
-    ("settings", "Settings", ft.Icons.SETTINGS_OUTLINED),
-    ("updates", "Updates", ft.Icons.SYSTEM_UPDATE_ALT),
-    ("about", "About", ft.Icons.INFO_OUTLINE),
+    ("settings", "Settings", ft.Icons.SETTINGS_OUTLINED, "amber"),
+    ("updates", "Updates", ft.Icons.SYSTEM_UPDATE_ALT, "accent"),
+    ("about", "About", ft.Icons.INFO_OUTLINE, "rose"),
 )
 
 
 class _NavItem:
-    def __init__(self, key: str, label: str, icon: str, on_select: Callable[[str], None]) -> None:
+    def __init__(self, key: str, label: str, icon: str, hue: str, on_select: Callable[[str], None]) -> None:
         self.key = key
+        self._hue = hue
         self._selected = False
         self._hovered = False
         self._icon = ft.Icon(icon, size=20)
@@ -34,9 +36,12 @@ class _NavItem:
                 spacing=12,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
             ),
-            height=40,
+            height=CONTROL_HEIGHT,
             padding=ft.Padding.symmetric(horizontal=12),
-            border_radius=10,
+            border_radius=CONTROL_HEIGHT / 2,
+            ink=True,
+            ink_color=ripple(),
+            animate=ft.Animation(MOTION_STATE_MS, ft.AnimationCurve.EASE_OUT),
             on_click=lambda _: on_select(key),
             on_hover=self._on_hover,
         )
@@ -62,43 +67,50 @@ class _NavItem:
 
     def _paint(self) -> None:
         colors = palette()
+        # The icon keeps its hue in every state, so each area stays recognisable.
+        self._icon.color = hue_color(self._hue)
         if self._selected:
-            background, foreground, icon_color, font = colors.accent_soft, colors.on_accent_soft, colors.on_accent_soft, FONT_SEMIBOLD
+            self.control.bgcolor = colors.accent_soft
+            self._label.color = colors.on_accent_soft
+            self._label.font_family = FONT_SEMIBOLD
         else:
-            background = colors.panel_high if self._hovered else None
-            foreground, icon_color, font = colors.text, colors.muted, FONT_REGULAR
-        self.control.bgcolor = background
-        self._icon.color = icon_color
-        self._label.color = foreground
-        self._label.font_family = font
+            # Transparent rather than None, so the background can fade in and out.
+            self.control.bgcolor = colors.panel_high if self._hovered else ft.Colors.TRANSPARENT
+            self._label.color = colors.text
+            self._label.font_family = FONT_REGULAR
         self._badge.bgcolor = colors.signal
 
 
 class Sidebar:
     def __init__(self, on_select: Callable[[str], None]) -> None:
         self._items: dict[str, _NavItem] = {}
-        tools = [self._add(key, label, icon, on_select) for key, label, icon in TOOL_ITEMS]
-        app = [self._add(key, label, icon, on_select) for key, label, icon in APP_ITEMS]
+        tools = [self._add(key, label, icon, hue, on_select) for key, label, icon, hue in TOOL_ITEMS]
+        app = [self._add(key, label, icon, hue, on_select) for key, label, icon, hue in APP_ITEMS]
         colors = palette()
         self.control = ft.Container(
             width=236,
-            bgcolor=colors.background,
-            padding=ft.Padding.symmetric(horizontal=14, vertical=22),
+            # A surface one step above the content, so the navigation reads as its own layer.
+            bgcolor=colors.bar,
+            padding=ft.Padding.symmetric(horizontal=16, vertical=24),
             content=ft.Column(
                 [
-                    ft.Row(
-                        [
-                            brand_mark(34),
-                            ft.Column(
-                                [
-                                    text("ADB Toolkit", size=15, font=FONT_SEMIBOLD),
-                                    text(f"v{APP_VERSION}", size=12, mono=True, color=colors.muted),
-                                ],
-                                spacing=0,
-                                tight=True,
-                            ),
-                        ],
-                        spacing=12,
+                    # Same inset as a navigation item, so the brand mark lines up with the icons.
+                    ft.Container(
+                        padding=ft.Padding.symmetric(horizontal=12),
+                        content=ft.Row(
+                            [
+                                brand_mark(34),
+                                ft.Column(
+                                    [
+                                        text("ADB Toolkit", size=15, font=FONT_SEMIBOLD),
+                                        text(f"v{APP_VERSION}", size=12, mono=True, color=colors.muted),
+                                    ],
+                                    spacing=0,
+                                    tight=True,
+                                ),
+                            ],
+                            spacing=12,
+                        ),
                     ),
                     ft.Container(height=24),
                     *tools,
@@ -111,8 +123,10 @@ class Sidebar:
             ),
         )
 
-    def _add(self, key: str, label: str, icon: str, on_select: Callable[[str], None]) -> ft.Container:
-        item = _NavItem(key, label, icon, on_select)
+    def _add(
+        self, key: str, label: str, icon: str, hue: str, on_select: Callable[[str], None]
+    ) -> ft.Container:
+        item = _NavItem(key, label, icon, hue, on_select)
         self._items[key] = item
         return item.control
 

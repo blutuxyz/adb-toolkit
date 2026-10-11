@@ -10,7 +10,7 @@ import flet as ft
 
 from adb_toolkit.core.devices import Device
 from adb_toolkit.core.process import CommandResult
-from adb_toolkit.ui.theme import FONT_SEMIBOLD, palette
+from adb_toolkit.ui.theme import SECTION_GAP, palette
 from adb_toolkit.ui.views.base import View
 from adb_toolkit.ui.widgets import action_row, hairline, text, title_block
 
@@ -24,6 +24,8 @@ class RebootTarget:
     title: str
     description: str
     done: str  # shown once the command has been sent
+    icon: str
+    hue: str  # colour of the icon tile, one of the palette's hue names
 
 
 class RebootView(View):
@@ -32,9 +34,7 @@ class RebootView(View):
         window: Window,
         *,
         title: str,
-        subtitle: str,
         targets: tuple[RebootTarget, ...],
-        next_up: str,
         accepts: Callable[[Device], bool],
         not_accepted_hint: Callable[[Device], str],
         send: Callable[[str, str | None], CommandResult],
@@ -57,23 +57,19 @@ class RebootView(View):
                 on_click=lambda _, entry=item: self.window.page.run_task(self._reboot, entry),
             )
             self._buttons.append(button)
-            rows.append(action_row(item.title, item.description, button))
+            rows.append(action_row(item.title, item.description, button, icon=item.icon, hue=item.hue))
 
         self.control = ft.Column(
             [
-                title_block(title, subtitle),
-                ft.Container(height=28),
-                text("Reboot", size=16, font=FONT_SEMIBOLD),
-                ft.Container(height=4),
+                title_block(title),
+                ft.Container(height=SECTION_GAP),
                 *rows,
-                hairline(),
                 ft.Container(height=16),
                 self._hint,
-                ft.Container(height=24),
-                text(next_up, size=13, color=palette().muted),
             ],
             expand=True,
             spacing=0,
+            scroll=ft.ScrollMode.AUTO,
         )
 
     async def activate(self) -> None:
@@ -81,12 +77,12 @@ class RebootView(View):
         ready = device is not None and self._accepts(device)
         for button in self._buttons:
             button.disabled = not ready
+        # The hint says why the buttons are off. It stays hidden when they are on.
+        self._hint.value = ""
         if device is None:
-            self._hint.value = "Connect a device to reboot it."
+            self._hint.value = "Connect a phone to reboot it."
         elif not ready:
             self._hint.value = self._not_accepted_hint(device)
-        else:
-            self._hint.value = f"Rebooting acts on {device.title}."
         self.window.update()
 
     async def _reboot(self, item: RebootTarget) -> None:
@@ -96,6 +92,6 @@ class RebootView(View):
             return
         result = await self.window.run_blocking(self._send, device.serial, item.target)
         if result.ok:
-            self.window.notify(item.done)
+            self.window.notify(item.done, success=True)
         else:
             self.window.notify(result.output or "The reboot did not go through.", error=True)

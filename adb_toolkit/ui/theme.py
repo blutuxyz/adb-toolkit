@@ -1,8 +1,10 @@
 """Colour palettes, fonts and the Material 3 theme built from them.
 
-The palette is cool and slightly green: Sage Paper for the background, Ink for
-text, and Oxide teal as the one accent. Amber marks things that need attention.
-Other colours are for status only.
+The base is a cool slate, lifted enough that the window reads as bright rather
+than murky. Teal is the one action colour. Five identity hues (blue, green,
+violet, amber, rose) each belong to one area of the app and show only in its
+icons and their tinted tiles. Amber also marks things that need attention, and
+red is reserved for destructive actions and failures.
 """
 
 from dataclasses import dataclass
@@ -24,6 +26,23 @@ FONT_FILES = {
     FONT_MONO: "fonts/IBMPlexMono-Regular.ttf",
 }
 
+# Shape and spacing. Screens use these names instead of literal numbers.
+# Controls are pills: buttons, filters, fields, navigation items and the device chip.
+# Their radius is half their height. Surfaces (cards, dialogs, menus, snack bars) are
+# rounded blocks with RADIUS_CARD. Icon tiles use RADIUS_TILE.
+CONTROL_HEIGHT = 40  # buttons, filters, fields and navigation items
+HEADER_CONTROL_HEIGHT = 48  # the top bar: device chip, Wi-Fi button and refresh
+RADIUS_INSET = 6  # pieces inside a preview
+RADIUS_TILE = 10  # icon tiles: the brand mark, letter tiles, the settings preview
+RADIUS_CARD = 14  # surfaces: cards, dialogs, menus and snack bars
+GUTTER = 36  # window edge to content, and the top bar's side padding
+SECTION_GAP = 32  # between a screen's title block and its content
+ROW_PADDING = 16  # vertical padding of a list row
+
+# Motion. Screens cross-fade and selections ease into place. Keep both short.
+MOTION_SCREEN_MS = 220
+MOTION_STATE_MS = 160
+
 
 @dataclass(frozen=True)
 class Palette:
@@ -40,38 +59,54 @@ class Palette:
     on_accent_soft: str
     signal: str  # needs attention: updates, unauthorised devices
     danger: str  # destructive actions and failed devices
+    # Identity hues. Each area of the app owns one; they tint icon tiles and never fill large areas.
+    blue: str
+    green: str
+    violet: str
+    amber: str
+    rose: str
 
 
 LIGHT_PALETTE = Palette(
-    background="#EDF0EE",
-    bar="#F7F9F8",
-    panel="#FBFCFB",
-    panel_high="#E1E7E4",
-    line="#D2DAD6",
-    text="#1A1F1E",
-    muted="#5C6764",
-    accent="#0E6B63",
+    background="#F2F5F9",
+    bar="#FFFFFF",
+    panel="#FFFFFF",
+    panel_high="#E6ECF3",
+    line="#D3DCE7",
+    text="#142033",
+    muted="#56657A",
+    accent="#0B7D72",
     on_accent="#FFFFFF",
-    accent_soft="#CFE8E3",
-    on_accent_soft="#063B36",
-    signal="#8F5511",
-    danger="#B3261E",
+    accent_soft="#CFF2EB",
+    on_accent_soft="#03423D",
+    signal="#A85D00",
+    danger="#C62828",
+    blue="#2563EB",
+    green="#15803D",
+    violet="#6D3FD6",
+    amber="#A85D00",
+    rose="#C2185B",
 )
 
 DARK_PALETTE = Palette(
-    background="#101716",
-    bar="#152120",
-    panel="#1A2725",
-    panel_high="#24332F",
-    line="#2B3B37",
-    text="#E2EAE7",
-    muted="#97A6A2",
-    accent="#6FD0C2",
-    on_accent="#00332E",
-    accent_soft="#173F3A",
-    on_accent_soft="#BFEFE6",
-    signal="#E9B35F",
-    danger="#F2B8B5",
+    background="#151B26",
+    bar="#1B2331",
+    panel="#232D3D",
+    panel_high="#2E3A4E",
+    line="#39475C",
+    text="#F1F5FA",
+    muted="#A9B6C9",
+    accent="#4FD8C6",
+    on_accent="#03262A",
+    accent_soft="#1B4A4F",
+    on_accent_soft="#C8F7EE",
+    signal="#FFC46B",
+    danger="#FF7D7D",
+    blue="#7DB4FF",
+    green="#6FE3A0",
+    violet="#B9A4FF",
+    amber="#FFC46B",
+    rose="#FF97B4",
 )
 
 PALETTES = {LIGHT: LIGHT_PALETTE, DARK: DARK_PALETTE}
