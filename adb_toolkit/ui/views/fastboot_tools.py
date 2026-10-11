@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import flet as ft
+
 from adb_toolkit.core.devices import FASTBOOT
 from adb_toolkit.ui.views.reboot import RebootTarget, RebootView
 
@@ -11,18 +13,29 @@ if TYPE_CHECKING:
     from adb_toolkit.ui.window import Window
 
 _TARGETS = (
-    RebootTarget(None, "Reboot system", "Restart the phone into Android.", "Rebooting the phone."),
+    RebootTarget(
+        None,
+        "Reboot system",
+        "Restart into Android.",
+        "Rebooting the phone.",
+        ft.Icons.RESTART_ALT,
+        "green",
+    ),
     RebootTarget(
         "bootloader",
         "Reboot to bootloader",
-        "Stay in fastboot mode. Use this before flashing a series of images.",
+        "Stay in fastboot mode.",
         "Rebooting to the bootloader.",
+        ft.Icons.FLASH_ON,
+        "violet",
     ),
     RebootTarget(
         "recovery",
         "Reboot to recovery",
-        "Start the recovery partition. Not every phone supports this from fastboot.",
+        "Not every phone supports this.",
         "Rebooting to recovery.",
+        ft.Icons.BUILD_CIRCLE_OUTLINED,
+        "amber",
     ),
 )
 
@@ -32,12 +45,8 @@ class FastbootToolsView(RebootView):
         super().__init__(
             window,
             title="Fastboot Tools",
-            subtitle="Commands for a phone in fastboot mode. Reboot it into fastboot from ADB Tools.",
             targets=_TARGETS,
-            next_up="Coming next: flash firmware and the remaining fastboot operations.",
             accepts=lambda device: device.mode == FASTBOOT,
-            not_accepted_hint=lambda device: (
-                "The phone is booted into Android. Reboot it to the bootloader from ADB Tools first."
-            ),
+            not_accepted_hint=lambda device: "Reboot to the bootloader from ADB Tools first.",
             send=lambda serial, target: window.session.fastboot.reboot(serial, target),
         )

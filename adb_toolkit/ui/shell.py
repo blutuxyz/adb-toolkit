@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import flet as ft
 
 from adb_toolkit.ui.sidebar import Sidebar
-from adb_toolkit.ui.theme import palette
+from adb_toolkit.ui.theme import GUTTER, MOTION_SCREEN_MS, palette
 from adb_toolkit.ui.topbar import TopBar
 from adb_toolkit.ui.views.about import AboutView
 from adb_toolkit.ui.views.adb_tools import AdbToolsView
@@ -38,9 +38,22 @@ class Shell:
             on_connect=lambda: window.connect_over_wifi_dialog(),
             on_refresh=lambda: window.page.run_task(window.refresh_devices),
         )
+        # The switcher only animates when the content's key changes, so each screen gets its own key below.
+        self._switcher = ft.AnimatedSwitcher(
+            content=ft.Container(),
+            transition=ft.AnimatedSwitcherTransition.FADE,
+            duration=MOTION_SCREEN_MS,
+            reverse_duration=MOTION_SCREEN_MS,
+            switch_in_curve=ft.AnimationCurve.EASE_OUT,
+            switch_out_curve=ft.AnimationCurve.EASE_IN,
+            expand=True,
+        )
+        for key, view in self.views.items():
+            view.control.key = key
         self._body = ft.Container(
             expand=True,
-            padding=ft.Padding.only(left=36, right=36, top=32, bottom=24),
+            padding=ft.Padding.only(left=GUTTER, right=GUTTER, top=32, bottom=24),
+            content=self._switcher,
         )
         colors = palette()
         self.root = ft.Row(
@@ -58,7 +71,7 @@ class Shell:
         self.current = key
         self.sidebar.select(key)
         view = self.views[key]
-        self._body.content = view.control
+        self._switcher.content = view.control
         self.window.update()
         await view.activate()
 
@@ -71,6 +84,7 @@ class Shell:
         self.topbar.show(self.window.session)
 
     def updates_changed(self) -> None:
-        self.sidebar.set_update_badge(self.window.session.update_available)
+        session = self.window.session
+        self.sidebar.set_update_badge(session.update_available or session.app_update_available)
         if self.current == "updates":
             self.views["updates"].refresh()

@@ -1,9 +1,21 @@
 """Small building blocks shared by the screens."""
 
+import zlib
+
 import flet as ft
 
 from adb_toolkit.core.devices import FASTBOOT, Device
-from adb_toolkit.ui.theme import FONT_MONO, FONT_REGULAR, FONT_SEMIBOLD, palette
+from adb_toolkit.ui.theme import (
+    FONT_MONO,
+    FONT_REGULAR,
+    FONT_SEMIBOLD,
+    RADIUS_TILE,
+    ROW_PADDING,
+    palette,
+)
+
+# The hues that letter tiles rotate through. The accent is included so the list is not one colour family.
+_LETTER_HUES = ("blue", "green", "violet", "amber", "rose", "accent")
 
 
 def text(value: str, *, size: float = 14, color: str | None = None, font: str = FONT_REGULAR,
@@ -17,15 +29,22 @@ def text(value: str, *, size: float = 14, color: str | None = None, font: str = 
     )
 
 
-def title_block(title: str, subtitle: str = "") -> ft.Column:
-    children = [text(title, size=26, font=FONT_SEMIBOLD)]
-    if subtitle:
-        children.append(text(subtitle, color=palette().muted))
-    return ft.Column(children, spacing=6, tight=True)
+def title_block(title: str) -> ft.Text:
+    return text(title, size=26, font=FONT_SEMIBOLD)
 
 
 def hairline() -> ft.Divider:
     return ft.Divider(height=1, thickness=1, color=palette().line)
+
+
+def ripple() -> str:
+    """Splash colour for a pressable container. It is the text colour, faint, so it reads in both themes."""
+    return ft.Colors.with_opacity(0.14, palette().text)
+
+
+def hue_color(name: str) -> str:
+    """The colour for a named hue. 'accent' and 'danger' work too, so tiles can use them."""
+    return getattr(palette(), name)
 
 
 def status_dot(color: str, size: float = 9) -> ft.Container:
@@ -38,36 +57,68 @@ def brand_mark(size: float = 32) -> ft.Container:
     return ft.Container(
         width=size,
         height=size,
-        border_radius=size * 0.28,
+        border_radius=RADIUS_TILE,
         bgcolor=colors.accent,
         alignment=ft.Alignment.CENTER,
         content=text("adb", size=size * 0.34, color=colors.on_accent, mono=True, font=FONT_SEMIBOLD),
     )
 
 
-def empty_state(title: str, body: str, *, icon: str = "", spinner: bool = False) -> ft.Column:
-    colors = palette()
-    marker = ft.ProgressRing(width=24, height=24, stroke_width=2) if spinner else ft.Icon(icon, size=32, color=colors.muted)
-    return ft.Column(
-        [
-            marker,
-            text(title, size=17, font=FONT_SEMIBOLD),
-            ft.Container(
-                width=440,
-                content=text(body, color=colors.muted),
-            ),
-        ],
-        spacing=8,
-        tight=True,
+def icon_tile(icon: str, hue: str = "accent", size: float = 40) -> ft.Container:
+    """A rounded square with a tint of the hue behind an icon of that hue. It heads rows, dialogs and empty states."""
+    color = hue_color(hue)
+    return ft.Container(
+        width=size,
+        height=size,
+        border_radius=RADIUS_TILE,
+        bgcolor=ft.Colors.with_opacity(0.16, color),
+        alignment=ft.Alignment.CENTER,
+        content=ft.Icon(icon, size=size * 0.5, color=color),
     )
 
 
-def action_row(title: str, description: str, action: ft.Control) -> ft.Container:
-    """One line of a tool list: a title and description on the left, a button on the right."""
+def letter_hue(package: str) -> str:
+    """A stable hue for a package, so an app keeps its colour from one visit to the next."""
+    return _LETTER_HUES[zlib.crc32(package.encode("utf-8")) % len(_LETTER_HUES)]
+
+
+def letter_tile(package: str, size: float = 36) -> ft.Container:
+    """Stands in for the app icon. Icons need the APK, which adb does not hand out."""
+    color = hue_color(letter_hue(package))
+    letter = (package.split(".")[-1][:1] or "?").upper()
     return ft.Container(
-        padding=ft.Padding.symmetric(vertical=18),
+        width=size,
+        height=size,
+        border_radius=RADIUS_TILE,
+        bgcolor=ft.Colors.with_opacity(0.16, color),
+        alignment=ft.Alignment.CENTER,
+        content=text(letter, size=15, font=FONT_SEMIBOLD, color=color),
+    )
+
+
+def empty_state(title: str, body: str, *, icon: str = "", hue: str = "blue", spinner: bool = False) -> ft.Column:
+    marker = ft.ProgressRing(width=24, height=24, stroke_width=2) if spinner else icon_tile(icon, hue, size=56)
+    children: list[ft.Control] = [marker, text(title, size=18, font=FONT_SEMIBOLD)]
+    if body:
+        children.append(ft.Container(width=440, content=text(body, color=palette().muted)))
+    return ft.Column(children, spacing=12, tight=True)
+
+
+def action_row(
+    title: str,
+    description: str,
+    action: ft.Control,
+    *,
+    icon: str | None = None,
+    hue: str = "accent",
+) -> ft.Container:
+    """One line of a tool list: an optional icon tile, a title and description, and a button on the right."""
+    leading: list[ft.Control] = [icon_tile(icon, hue)] if icon else []
+    return ft.Container(
+        padding=ft.Padding.symmetric(vertical=ROW_PADDING),
         content=ft.Row(
             [
+                *leading,
                 ft.Column(
                     [
                         text(title, size=15, font=FONT_SEMIBOLD),
@@ -79,7 +130,7 @@ def action_row(title: str, description: str, action: ft.Control) -> ft.Container
                 ),
                 action,
             ],
-            spacing=20,
+            spacing=16,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
         ),
     )
