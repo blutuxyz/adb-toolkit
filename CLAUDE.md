@@ -55,9 +55,17 @@ There is no build or packaging step yet. The tests need no phone, no Flet window
 - `core/updates.py` parses Google's SDK feed (`repository2-3.xml`). The feed names the platforms `windows`, `macosx` and `linux`, and `HOST_OS_BY_PLATFORM` maps `sys.platform` onto those names.
 - `install()` holds a module-level lock, downloads into a temp folder under the data dir, and checks the SHA-1. `install_archive()` then unpacks into a staging folder, runs `adb kill-server`, moves the old folder to `platform-tools.previous`, and moves it back if the swap fails.
 
+### Update checks
+
+`Window.check_updates()` runs two checks. `core/updates.py` reads Google's SDK feed for platform-tools. `core/app_updates.py` reads GitHub's latest-release endpoint for ADB Toolkit. GitHub answers 404 until the first release is published. That is stored as `Session.app_checked` with `app_release` set to `None`, not as an error. The app never replaces itself: the Updates screen opens the release page.
+
 ### Device polling
 
 `Window._poll_devices` runs every `POLL_SECONDS` (3). Each pass calls `Session.scan()`, which runs `adb devices -l` and `fastboot devices`. `Session.update_devices()` returns whether the list changed, and the UI only redraws on a change. `_default_serial` prefers a ready adb device. Every adb command passes `-s <serial>`. `Device.is_ready` is true only for adb state `device`. Fastboot devices share the same list, with `mode == "fastboot"`.
+
+### Screen mirroring
+
+`core/scrcpy.py` is the only place that knows about scrcpy. It finds the program in the toolkit's folder, then on PATH, and starts one window per phone with `ADB` set to the toolkit's own adb. `Scrcpy.running()` checks the process, and `atexit` closes the windows on exit. scrcpy's output goes to `scrcpy.log`, which is shown when a window dies on its own. The screen section is `ui/views/mirror.py`, embedded in `AdbToolsView`. Its watcher task is what turns "window closed" into a refresh.
 
 ### Blocking work from the UI
 
@@ -67,12 +75,18 @@ Flet runs on asyncio, so anything that touches a subprocess or the network goes 
 
 - Sidebar keys and `Shell.views` keys must match: `apps`, `adb`, `fastboot`, `settings`, `updates`, `about`. To add a screen, subclass `View` in `ui/views/base.py`, register it in `Shell.views`, and add a tuple to `TOOL_ITEMS` or `APP_ITEMS` in `sidebar.py`.
 - A `View` builds its controls in `__init__` and refreshes in `activate()`, which runs each time the screen opens. `on_devices_changed()` runs only for the visible screen.
+- Screens swap inside an `AnimatedSwitcher`, which fades only when the content's key changes. `Shell` sets `view.control.key` from its `views` key, so keep those keys unique.
+- A plain `Container` with `on_click` needs `ink=True` and `ink_color=ripple()`, or it gives no press feedback. `tests/test_shell.py` checks this for every clickable container.
 - `RebootView` is the shared base for ADB Tools and Fastboot Tools. Subclasses supply the target list, `accepts`, `not_accepted_hint` and `send`.
 - Apps screen: `Adb.list_packages` combines `pm list packages` (installed) with `pm list packages -s -u` (all system packages). A system package that is not installed is shown as removed, and gets a Restore button. Uninstall and restore are judged from the command's output text (`Success`, `installed for user`, `already installed`), not from the exit code.
 
 ### Theme
 
 `ui/theme.py` defines two `Palette` dataclasses. `activate()` sets the active palette at module level, and widgets read `palette()` when they are built. Colours are therefore fixed at construction, so changing the theme rebuilds the whole `Shell` (`Window.set_theme_mode`). Do not capture colours at import time.
+
+Shape and spacing come from the constants at the top of `ui/theme.py`, not literal numbers. Controls are pills: buttons, filters, fields, navigation items and the device chip. Their radius is half their height (`CONTROL_HEIGHT` 40; the top bar uses `HEADER_CONTROL_HEIGHT` 48). Surfaces (cards, dialogs, menus, snack bars) use `RADIUS_CARD`, and icon tiles use `RADIUS_TILE`. Dialogs, snack bars and the device menu pass the radius as `shape`, because Flet's defaults (28, 4) do not match.
+
+Colour has three jobs. Each area of the app owns an identity hue (`blue`, `green`, `violet`, `amber`, `rose`), set in `TOOL_ITEMS`/`APP_ITEMS` and on the reboot targets. It shows only in icons and in the tint of an `icon_tile`, never as a large fill. `accent` (teal) marks actions and selection. `signal` (amber) and `danger` (red) mark status. `tests/test_theme.py` keeps text at 4.5:1 and icons at 3:1 on both palettes, so check that test after changing colours.
 
 ### Persistence
 

@@ -9,12 +9,14 @@ One desktop window for `adb` and `fastboot`. Written in Python with
   SHA-1 from Google's SDK feed, unpacks them into `%LOCALAPPDATA%\ADB Toolkit`
   and adds that folder to your user PATH.
 - **Updates.** Compares the installed adb and fastboot with the latest release and
-  installs the new one when you ask.
+  installs the new one when you ask. It also checks GitHub for a newer ADB Toolkit
+  release and links to its release page.
 - **Device picker and Wi-Fi connect** in the top bar. ADB and fastboot devices are
   listed together, with their state.
 - **Apps.** Lists the packages on the selected phone. Uninstall apps, or restore
   system apps that were removed earlier.
-- **ADB Tools and Fastboot Tools.** Reboot to system, recovery or bootloader.
+- **ADB Tools and Fastboot Tools.** Reboot to system, recovery or bootloader. ADB
+  Tools also mirrors the phone's screen and sends mouse and keyboard input with scrcpy.
 - **Settings.** Light or dark theme, each shown with a drawing of the layout.
 - **About.**
 
@@ -53,10 +55,12 @@ adb_toolkit/
   core/                    no UI imports
     platform_tools.py      install, verify, locate adb and fastboot
     updates.py             read Google's SDK feed for the latest release
+    app_updates.py         read GitHub's latest ADB Toolkit release
     path_env.py            PATH for this process and the Windows user PATH
     adb.py, fastboot.py    command wrappers
     devices.py, packages.py  parsers for device and package lists
     session.py             selected device, versions, settings
+    scrcpy.py              find and run scrcpy, one mirror window per phone
     settings.py, paths.py, versions.py, process.py
   ui/
     theme.py               palettes and the Material theme
@@ -78,5 +82,8 @@ tests/                     pytest suite
   `cmd package install-existing --user 0`. No root is needed.
 - **App icons.** adb does not give out app icons, so each app gets a letter tile
   for now.
-- **Not built yet:** install APK, sideload ROM, send file, custom command, screen
-  mirroring with scrcpy, flashing firmware, language selection and font size.
+- **scrcpy.** Mirroring needs scrcpy, which the toolkit does not bundle. It looks for
+  `scrcpy.exe` in `%LOCALAPPDATA%\ADB Toolkit\scrcpy` and then on PATH. The toolkit
+  passes its own adb to scrcpy and closes any mirror windows when it exits.
+- **Not built yet:** install APK, sideload ROM, send file, custom command, flashing
+  firmware, language selection and font size.
