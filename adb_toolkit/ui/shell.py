@@ -32,11 +32,11 @@ class Shell:
             "updates": UpdatesView(window),
             "about": AboutView(window),
         }
-        self.sidebar = Sidebar(lambda key: window.page.run_task(self.open, key))
+        self.sidebar = Sidebar(lambda key: window.page.run_task(self.open, key)) # type: ignore
         self.topbar = TopBar(
-            on_pick=lambda serial: window.page.run_task(window.select_device, serial),
+            on_pick=lambda serial: window.page.run_task(window.select_device, serial), # type: ignore
             on_connect=lambda: window.connect_over_wifi_dialog(),
-            on_refresh=lambda: window.page.run_task(window.refresh_devices),
+            on_refresh=lambda: window.page.run_task(window.refresh_devices), # type: ignore
         )
         self._body = ft.Container(
             expand=True,
