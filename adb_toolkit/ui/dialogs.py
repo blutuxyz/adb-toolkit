@@ -60,7 +60,7 @@ def show_connect_wifi_dialog(page: ft.Page, on_connect: Callable[[str], None]) -
     def submit(_=None) -> None:
         address = (field.value or "").strip()
         if not _WIFI_ADDRESS.match(address):
-            field.error_text = "Use the IP address and port, for example 192.168.1.20:5555."
+            field.error = "Use the IP address and port, for example 192.168.1.20:5555."
             page.update()
             return
         page.pop_dialog()
