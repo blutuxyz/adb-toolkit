@@ -7,9 +7,9 @@ from typing import TYPE_CHECKING
 import flet as ft
 
 from adb_toolkit.config import APP_NAME, APP_VERSION, CREATOR_NAME, CREATOR_URL, PROJECT_URL
-from adb_toolkit.ui.theme import FONT_SEMIBOLD, palette
+from adb_toolkit.ui.theme import FONT_SEMIBOLD, ROW_PADDING, palette
 from adb_toolkit.ui.views.base import View
-from adb_toolkit.ui.widgets import brand_mark, hairline, text
+from adb_toolkit.ui.widgets import brand_mark, hairline, icon_tile, ripple, text
 
 if TYPE_CHECKING:
     from adb_toolkit.ui.window import Window
@@ -26,7 +26,7 @@ class AboutView(View):
                         brand_mark(56),
                         ft.Column(
                             [
-                                text(APP_NAME, size=24, font=FONT_SEMIBOLD),
+                                text(APP_NAME, size=26, font=FONT_SEMIBOLD),
                                 text(f"Version {APP_VERSION}", mono=True, color=colors.muted),
                             ],
                             spacing=4,
@@ -36,20 +36,11 @@ class AboutView(View):
                     spacing=18,
                     vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
-                ft.Container(height=24),
-                ft.Container(
-                    width=560,
-                    content=text(
-                        "One front end for adb and fastboot. See the connected phone, manage its apps, "
-                        "reboot it, and flash firmware.",
-                        size=15,
-                    ),
-                ),
                 ft.Container(height=32),
                 hairline(),
-                _link_row("Website", CREATOR_URL, self._open(CREATOR_URL)),
+                _link_row("Website", CREATOR_URL, self._open(CREATOR_URL), ft.Icons.LANGUAGE, "blue"),
                 hairline(),
-                _link_row("Source code", PROJECT_URL, self._open(PROJECT_URL)),
+                _link_row("Source code", PROJECT_URL, self._open(PROJECT_URL), ft.Icons.CODE, "violet"),
                 hairline(),
                 ft.Container(height=24),
                 text(f"Made by {CREATOR_NAME}", color=colors.muted),
@@ -62,13 +53,16 @@ class AboutView(View):
         return lambda _: self.window.page.run_task(self.window.open_url, url)
 
 
-def _link_row(label: str, url: str, on_click) -> ft.Container:
+def _link_row(label: str, url: str, on_click, icon: str, hue: str) -> ft.Container:
     colors = palette()
     return ft.Container(
-        padding=ft.Padding.symmetric(vertical=16),
+        padding=ft.Padding.symmetric(vertical=ROW_PADDING),
+        ink=True,
+        ink_color=ripple(),
         on_click=on_click,
         content=ft.Row(
             [
+                icon_tile(icon, hue),
                 ft.Column(
                     [
                         text(label, size=15, font=FONT_SEMIBOLD),

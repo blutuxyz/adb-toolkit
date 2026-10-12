@@ -13,10 +13,7 @@ from adb_toolkit.ui.widgets import brand_mark, text
 if TYPE_CHECKING:
     from adb_toolkit.ui.window import Window
 
-_BODY = (
-    "ADB Toolkit needs Google's adb and fastboot. They are downloaded from dl.google.com, "
-    "checked against Google's SHA-1 checksum, and added to your user PATH."
-)
+_BODY = "Downloads Google's adb and fastboot and adds them to your PATH."
 
 
 class SetupView:
@@ -35,10 +32,10 @@ class SetupView:
             alignment=ft.Alignment.CENTER,
             content=ft.Column(
                 [
-                    brand_mark(52),
-                    ft.Container(height=28),
-                    text("Set up platform-tools", size=24, font=FONT_SEMIBOLD),
-                    ft.Container(height=10),
+                    brand_mark(56),
+                    ft.Container(height=24),
+                    text("Set up platform-tools", size=26, font=FONT_SEMIBOLD),
+                    ft.Container(height=8),
                     text(_BODY, color=colors.muted),
                     ft.Container(height=32),
                     self._progress,

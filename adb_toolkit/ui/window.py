@@ -12,6 +12,7 @@ import flet as ft
 
 from adb_toolkit.config import APP_NAME
 from adb_toolkit.core import paths
+from adb_toolkit.core.app_updates import fetch_latest_release
 from adb_toolkit.core.path_env import ensure_on_path
 from adb_toolkit.core.platform_tools import PlatformToolsError, Progress, install, local_install
 from adb_toolkit.core.session import Session
@@ -24,6 +25,7 @@ from adb_toolkit.ui.theme import (
     FONT_FILES,
     LIGHT_PALETTE,
     PALETTES,
+    RADIUS_CARD,
     activate,
     build_theme,
     palette,
@@ -146,7 +148,7 @@ class Window:
         result = await self.run_blocking(self.session.adb.connect, address)
         output = result.output
         if result.ok and _WIFI_CONNECTED.search(output) and "failed" not in output.lower():
-            self.notify(f"Connected to {address}")
+            self.notify(f"Connected to {address}", success=True)
         else:
             self.notify(output or f"Could not connect to {address}.", error=True)
         await self.refresh_devices()
@@ -172,15 +174,22 @@ class Window:
         return None
 
     async def check_updates(self) -> str | None:
+        """Look up the latest platform-tools and ADB Toolkit releases. Returns the errors, one per line, or None."""
+        errors: list[str] = []
         try:
-            remote = await asyncio.to_thread(fetch_latest)
+            self.session.remote = await asyncio.to_thread(fetch_latest)
         except UpdateError as error:
-            log.warning("Update check failed: %s", error)
-            return str(error)
-        self.session.remote = remote
+            log.warning("Platform-tools update check failed: %s", error)
+            errors.append(str(error))
+        try:
+            self.session.app_release = await asyncio.to_thread(fetch_latest_release)
+            self.session.app_checked = True
+        except UpdateError as error:
+            log.warning("App update check failed: %s", error)
+            errors.append(str(error))
         if self.shell:
             self.shell.updates_changed()
-        return None
+        return "\n".join(errors) or None
 
     def _add_to_path(self) -> None:
         try:
@@ -210,13 +219,20 @@ class Window:
                 on_tick()
                 self.page.update()
 
-    def notify(self, message: str, *, error: bool = False) -> None:
+    def notify(self, message: str, *, error: bool = False, success: bool = False) -> None:
         colors = palette()
+        if error:
+            background = colors.danger
+        elif success:
+            background = colors.green
+        else:
+            background = colors.text
         snack = ft.SnackBar(
             content=text(message, color=colors.background),
-            bgcolor=colors.danger if error else colors.text,
+            bgcolor=background,
             show_close_icon=True,
             duration=5000,
+            shape=ft.RoundedRectangleBorder(radius=RADIUS_CARD),
         )
         self.page.overlay[:] = [item for item in self.page.overlay if not isinstance(item, ft.SnackBar)]
         self.page.overlay.append(snack)

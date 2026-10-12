@@ -11,9 +11,9 @@ from adb_toolkit.core.adb import AdbError
 from adb_toolkit.core.devices import FASTBOOT, Device
 from adb_toolkit.core.packages import SYSTEM, USER, AppEntry, restore_succeeded, uninstall_succeeded
 from adb_toolkit.ui.dialogs import confirm
-from adb_toolkit.ui.theme import FONT_SEMIBOLD, palette
+from adb_toolkit.ui.theme import CONTROL_HEIGHT, ROW_PADDING, SECTION_GAP, palette
 from adb_toolkit.ui.views.base import View
-from adb_toolkit.ui.widgets import empty_state, hairline, text, title_block
+from adb_toolkit.ui.widgets import empty_state, hairline, letter_tile, text, title_block
 
 if TYPE_CHECKING:
     from adb_toolkit.ui.window import Window
@@ -34,7 +34,8 @@ class AppsView(View):
             hint_text="Search packages",
             prefix_icon=ft.Icons.SEARCH,
             width=300,
-            border_radius=10,
+            height=CONTROL_HEIGHT,
+            border_radius=CONTROL_HEIGHT / 2,
             border_color=colors.line,
             focused_border_color=colors.accent,
             cursor_color=colors.accent,
@@ -70,11 +71,8 @@ class AppsView(View):
 
         self.control = ft.Column(
             [
-                title_block(
-                    "Apps",
-                    "Packages on the selected device. Removed system apps stay in the list, so you can restore them.",
-                ),
-                ft.Container(height=24),
+                title_block("Apps"),
+                ft.Container(height=SECTION_GAP),
                 self._toolbar,
                 ft.Container(height=8),
                 hairline(),
@@ -92,14 +90,14 @@ class AppsView(View):
             self._show_message(*_not_ready_message(device))
             return
 
-        self._show_message("", "Loading packages", "This takes a few seconds.", spinner=True)
+        self._show_message("", "Loading packages", "", spinner=True)
         try:
             self._entries = await self.window.run_blocking(
                 self.window.session.adb.list_packages, device.serial
             )
         except AdbError as error:
             self._entries = []
-            self._show_message(ft.Icons.ERROR_OUTLINE, "Could not list packages", str(error))
+            self._show_message(ft.Icons.ERROR_OUTLINE, "Could not list packages", str(error), "danger")
             return
         self._render()
 
@@ -136,7 +134,7 @@ class AppsView(View):
             self._show_message(
                 ft.Icons.SEARCH_OFF,
                 "No packages match",
-                "Change the filter or clear the search to see more.",
+                "",
                 toolbar=True,
             )
             self._count.value = f"0 of {len(self._entries)}"
@@ -163,6 +161,7 @@ class AppsView(View):
             action = ft.FilledTonalButton(
                 content=text("Restore app"),
                 icon=ft.Icons.RESTORE,
+                icon_color=colors.green,
                 disabled=self._pending is not None,
                 on_click=lambda _, item=entry: self.window.page.run_task(self._restore, item),
             )
@@ -176,10 +175,10 @@ class AppsView(View):
             )
 
         return ft.Container(
-            padding=ft.Padding.symmetric(vertical=12),
+            padding=ft.Padding.symmetric(vertical=ROW_PADDING),
             content=ft.Row(
                 [
-                    _letter_tile(entry.package),
+                    letter_tile(entry.package),
                     ft.Column(
                         [
                             text(entry.package, size=14, mono=True),
@@ -197,10 +196,10 @@ class AppsView(View):
         )
 
     def _show_message(
-        self, icon: str, title: str, body: str, *, spinner: bool = False, toolbar: bool = False
+        self, icon: str, title: str, body: str, hue: str = "blue", *, spinner: bool = False, toolbar: bool = False
     ) -> None:
         """Replace the list with a message. The toolbar stays only when the user can act on it."""
-        state = empty_state(title, body, icon=icon, spinner=spinner)
+        state = empty_state(title, body, icon=icon, hue=hue, spinner=spinner)
         self._body.content = ft.Container(padding=ft.Padding.only(top=48), content=state)
         self._count.value = ""
         self._toolbar.visible = toolbar
@@ -208,18 +207,17 @@ class AppsView(View):
 
     def _confirm_uninstall(self, entry: AppEntry) -> None:
         if entry.kind == SYSTEM:
-            message = (
-                "This system app is removed for user 0 only. Its data stays on the phone, "
-                "and you can restore it from the Removed filter."
-            )
+            message = "Removed for this user only. Its data stays on the phone."
         else:
-            message = "The app and its data are removed from the phone."
+            message = "The app and its data are deleted."
         confirm(
             self.window.page,
             title=f"Uninstall {entry.package}?",
             message=message,
             action_label="Uninstall",
             destructive=True,
+            icon=ft.Icons.DELETE_OUTLINE,
+            hue="danger",
             on_confirm=lambda: self.window.page.run_task(self._uninstall, entry),
         )
 
@@ -237,7 +235,7 @@ class AppsView(View):
             self._pending = None
             self._render()
         if uninstall_succeeded(result.output):
-            self.window.notify(f"Uninstalled {entry.package}")
+            self.window.notify(f"Uninstalled {entry.package}", success=True)
             await self.activate()
         else:
             self.window.notify(result.output or "The uninstall did not finish.", error=True)
@@ -255,7 +253,7 @@ class AppsView(View):
             self._pending = None
             self._render()
         if restore_succeeded(result.output):
-            self.window.notify(f"Restored {entry.package}")
+            self.window.notify(f"Restored {entry.package}", success=True)
             await self.activate()
         else:
             self.window.notify(result.output or "The restore did not finish.", error=True)
@@ -266,41 +264,32 @@ class AppsView(View):
         return device.serial if device and device.is_ready else None
 
 
-def _not_ready_message(device: Device | None) -> tuple[str, str, str]:
+def _not_ready_message(device: Device | None) -> tuple[str, str, str, str]:
+    """Icon, title, body and hue for the list area when there is no ready device to read from."""
     if device is None:
         return (
             ft.Icons.PHONE_ANDROID,
             "No device connected",
-            "Plug in a phone with USB debugging turned on, or use Connect over Wi-Fi.",
+            "Connect a phone with USB debugging on.",
+            "blue",
         )
     if device.mode == FASTBOOT:
         return (
             ft.Icons.FLASH_ON,
             "The phone is in fastboot mode",
-            "Reboot it to Android from Fastboot Tools to manage apps.",
+            "Reboot to Android to manage apps.",
+            "violet",
         )
     if device.state == "unauthorized":
         return (
             ft.Icons.LOCK_OUTLINE,
             "Allow USB debugging on the phone",
-            "Unlock the phone and accept the debugging prompt. The list loads after that.",
+            "Accept the prompt on the phone.",
+            "amber",
         )
     return (
         ft.Icons.USB_OFF,
         f"The device is {device.state}",
-        "Reconnect the cable, or restart adb from the Refresh button in the top bar.",
-    )
-
-
-def _letter_tile(package: str) -> ft.Container:
-    """Stands in for the app icon. Icons need the APK, which adb does not hand out."""
-    colors = palette()
-    letter = (package.split(".")[-1][:1] or "?").upper()
-    return ft.Container(
-        width=36,
-        height=36,
-        border_radius=10,
-        bgcolor=colors.panel_high,
-        alignment=ft.Alignment.CENTER,
-        content=text(letter, size=15, font=FONT_SEMIBOLD, color=colors.muted),
+        "Reconnect the cable.",
+        "danger",
     )

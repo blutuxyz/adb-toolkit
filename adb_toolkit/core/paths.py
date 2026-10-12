@@ -27,3 +27,12 @@ def platform_tools_dir() -> Path:
 
 def settings_file() -> Path:
     return data_dir() / "settings.json"
+
+
+def scrcpy_dir() -> Path:
+    """Folder the toolkit looks in for scrcpy, before it looks on PATH."""
+    return data_dir() / "scrcpy"
+
+
+def scrcpy_log() -> Path:
+    return data_dir() / "scrcpy.log"

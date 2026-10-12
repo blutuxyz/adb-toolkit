@@ -6,11 +6,14 @@ Holds no UI code, so the selection and update rules can be tested directly.
 import logging
 from pathlib import Path
 
+from adb_toolkit.config import APP_VERSION
 from adb_toolkit.core import paths, settings
 from adb_toolkit.core.adb import Adb
+from adb_toolkit.core.app_updates import AppRelease
 from adb_toolkit.core.devices import ADB, READY_STATE, Device
 from adb_toolkit.core.fastboot import Fastboot
 from adb_toolkit.core.platform_tools import LocalInstall
+from adb_toolkit.core.scrcpy import Scrcpy
 from adb_toolkit.core.updates import RemotePlatformTools
 from adb_toolkit.core.versions import Version, needs_update
 
@@ -23,13 +26,17 @@ class Session:
         adb: Adb | None = None,
         fastboot: Fastboot | None = None,
         settings_path: Path | None = None,
+        scrcpy: Scrcpy | None = None,
     ) -> None:
         self.adb = adb or Adb()
         self.fastboot = fastboot or Fastboot()
+        self.scrcpy = scrcpy or Scrcpy()
         self._settings_path = settings_path
         self.settings = settings.load(self.settings_path)
         self.local = LocalInstall(installed=False)
         self.remote: RemotePlatformTools | None = None
+        self.app_release: AppRelease | None = None
+        self.app_checked = False  # False until the first check, so "no release yet" is not shown too early
         self.devices: list[Device] = []
         self.selected_serial: str | None = None
 
@@ -46,6 +53,12 @@ class Session:
         if self.remote is None or not self.local.installed:
             return False
         return needs_update(self.local.adb_version, self.remote.version)
+
+    @property
+    def app_update_available(self) -> bool:
+        if self.app_release is None:
+            return False
+        return needs_update(Version.parse(APP_VERSION), self.app_release.version)
 
     @property
     def selected_device(self) -> Device | None:

@@ -14,4 +14,11 @@ PROJECT_URL = "https://github.com/blutuxyz/adb-toolkit"
 PLATFORM_TOOLS_REPOSITORY_URL = "https://dl.google.com/android/repository/repository2-3.xml"
 PLATFORM_TOOLS_BASE_URL = "https://dl.google.com/android/repository/"
 
+# scrcpy is installed by the user. The app only links to its releases page.
+SCRCPY_RELEASES_URL = "https://github.com/Genymobile/scrcpy/releases"
+
+# GitHub's latest-release endpoint for this app. It answers 404 until the first release is published.
+APP_RELEASES_API_URL = "https://api.github.com/repos/blutuxyz/adb-toolkit/releases/latest"
+APP_RELEASES_PAGE_URL = f"{PROJECT_URL}/releases"
+
 ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
