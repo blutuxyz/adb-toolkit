@@ -77,7 +77,7 @@ def show_connect_wifi_dialog(page: ft.Page, on_connect: Callable[[str], None]) -
     def submit(_=None) -> None:
         address = (field.value or "").strip()
         if not _WIFI_ADDRESS.match(address):
-            field.error_text = "Enter an address like 192.168.1.20:5555."
+            field.error = "Enter an address like 192.168.1.20:5555."
             page.update()
             return
         page.pop_dialog()
