@@ -32,6 +32,19 @@ def _contrast(first: str, second: str) -> float:
     ("text", "bar"),
     ("muted", "background"),
     ("muted", "panel"),
+    ("text", "panel_high"),
+    ("muted", "panel_high"),
+    ("text", "accent_soft"),
+    ("on_accent_soft", "accent_soft"),
+    ("on_danger", "danger"),
+    ("on_signal", "signal"),
+    # Status and destructive labels are set as text, not as icons.
+    ("danger", "background"),
+    ("danger", "panel"),
+    ("signal", "background"),
+    ("signal", "panel"),
+    ("accent", "background"),
+    ("accent", "panel"),
 ])
 def test_text_meets_aa_on_every_surface(theme, colours, foreground, background):
     ratio = _contrast(getattr(colours, foreground), getattr(colours, background))
@@ -54,13 +67,32 @@ def test_icons_stand_out_on_the_panels(theme, colours, hue):
     assert ratio >= 3, f"{theme}: {hue} icon on the panel is {ratio:.2f}:1"
 
 
+@pytest.mark.parametrize("theme, colours", THEMES)
+@pytest.mark.parametrize("surface", ["bar", "panel_high", "accent_soft"])
+@pytest.mark.parametrize("hue", IDENTITY_HUES)
+def test_navigation_icons_stand_out_in_every_state(theme, colours, surface, hue):
+    # The sidebar is on the bar, a hovered item is panel_high, and the selected item is accent_soft.
+    ratio = _contrast(getattr(colours, hue), getattr(colours, surface))
+
+    assert ratio >= 3, f"{theme}: {hue} icon on {surface} is {ratio:.2f}:1"
+
+
+@pytest.mark.parametrize("theme, colours", THEMES)
+@pytest.mark.parametrize("surface", ["background", "panel"])
+def test_control_outlines_meet_the_non_text_contrast(theme, colours, surface):
+    ratio = _contrast(colours.control_border, getattr(colours, surface))
+
+    assert ratio >= 3, f"{theme}: control border on {surface} is {ratio:.2f}:1"
+
+
 def test_a_package_keeps_its_letter_colour_between_runs():
     assert letter_hue("com.android.chrome") == letter_hue("com.android.chrome")
 
 
-def test_letter_tiles_only_use_palette_hues():
+def test_letter_tiles_only_use_identity_hues():
     packages = ["com.android.chrome", "com.spotify.music", "org.telegram.messenger", "com.example.notes"]
 
     hues = {letter_hue(package) for package in packages}
 
-    assert hues <= set(IDENTITY_HUES) | {"accent"}
+    # Accent means action, so it is never a package's colour.
+    assert hues <= set(IDENTITY_HUES)

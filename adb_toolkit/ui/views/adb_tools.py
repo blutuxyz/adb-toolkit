@@ -7,9 +7,9 @@ from typing import TYPE_CHECKING
 import flet as ft
 
 from adb_toolkit.core.devices import ADB
-from adb_toolkit.ui.theme import SECTION_GAP
 from adb_toolkit.ui.views.mirror import MirrorPanel
 from adb_toolkit.ui.views.reboot import RebootTarget, RebootView
+from adb_toolkit.ui.widgets import spec_section
 
 if TYPE_CHECKING:
     from adb_toolkit.ui.window import Window
@@ -47,6 +47,8 @@ class AdbToolsView(RebootView):
         super().__init__(
             window,
             title="ADB Tools",
+            subtitle="Commands for a phone booted into Android.",
+            hue="green",
             targets=_TARGETS,
             accepts=lambda device: device.mode == ADB and device.is_ready,
             not_accepted_hint=lambda device: (
@@ -57,7 +59,13 @@ class AdbToolsView(RebootView):
             send=lambda serial, target: window.session.adb.reboot(serial, target),
         )
         self.mirror = MirrorPanel(window, self)
-        self.control.controls.extend([ft.Container(height=SECTION_GAP), self.mirror.control])
+        self.add_section(
+            spec_section(
+                "Screen",
+                [self.mirror.control],
+                description="Show the phone's screen in a window on this computer.",
+            )
+        )
 
     async def activate(self) -> None:
         await super().activate()

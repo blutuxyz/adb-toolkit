@@ -79,7 +79,7 @@ Flet runs on asyncio, so anything that touches a subprocess or the network goes 
 
 ### Screens and navigation
 
-- Sidebar keys and `Shell.views` keys must match: `apps`, `adb`, `fastboot`, `settings`, `updates`, `about`. To add a screen, subclass `View` in `ui/views/base.py`, register it in `Shell.views`, and add a tuple to `TOOL_ITEMS` or `APP_ITEMS` in `sidebar.py`.
+- Rail keys and `Shell.views` keys must match: `apps`, `adb`, `fastboot`, `settings`, `updates`, `about`. To add a screen, subclass `View` in `ui/views/base.py`, register it in `Shell.views`, and add a tuple to `TOOL_ITEMS` or `APP_ITEMS` in `sidebar.py` (the icon rail; labels are short because they sit under the icons).
 - A scrolling screen is a `ListView` with `SCROLL_PADDING`, not a scrolling `Column`, so the scrollbar does not sit on the buttons at the right edge.
 - A `View` builds its controls in `__init__` and refreshes in `activate()`, which runs each time the screen opens. `on_devices_changed()` runs only for the visible screen.
 - Screens swap inside an `AnimatedSwitcher`, which fades only when the content's key changes. `Shell` sets `view.control.key` from its `views` key, so keep those keys unique.
@@ -91,9 +91,17 @@ Flet runs on asyncio, so anything that touches a subprocess or the network goes 
 
 `ui/theme.py` defines two `Palette` dataclasses. `activate()` sets the active palette at module level, and widgets read `palette()` when they are built. Colours are therefore fixed at construction, so changing the theme rebuilds the whole `Shell` (`Window.set_theme_mode`). Do not capture colours at import time.
 
-Shape and spacing come from the constants at the top of `ui/theme.py`, not literal numbers. Controls are pills: buttons, filters, fields, navigation items and the device chip. Their radius is half their height (`CONTROL_HEIGHT` 40; the top bar uses `HEADER_CONTROL_HEIGHT` 48). Surfaces (cards, dialogs, menus, snack bars) use `RADIUS_CARD`, and icon tiles use `RADIUS_TILE`. Dialogs, snack bars and the device menu pass the radius as `shape`, because Flet's defaults (28, 4) do not match.
+Type, spacing and shape come from the constants at the top of `ui/theme.py`, not literal numbers. Font sizes are `TYPE_DISPLAY` (28), `TYPE_TITLE` (18), `TYPE_LABEL` (15), `TYPE_BODY` (14) and `TYPE_CAPTION` (12). Gaps and padding use the `SPACE_*` scale (4, 8, 12, 16, 24, 32). `tests/test_design_tokens.py` fails on a literal `size=` in a text or icon call, on a raw Flet button outside `widgets.py`, or on a spacing value off the scale. Controls are pills: buttons, filters, fields and the rail's icon tiles. Their radius is half their height (`CONTROL_HEIGHT` 40; the device strip uses `HEADER_CONTROL_HEIGHT` 48). Surfaces (cards, dialogs, menus, snack bars) use `RADIUS_CARD`, and icon tiles use `RADIUS_TILE`. Dialogs, snack bars and the device menu pass the radius as `shape`, because Flet's defaults (28, 4) do not match.
 
-Colour has three jobs. Each area of the app owns an identity hue (`blue`, `green`, `violet`, `amber`, `rose`), set in `TOOL_ITEMS`/`APP_ITEMS` and on the reboot targets. It shows only in icons and in the tint of an `icon_tile`, never as a large fill. `accent` (teal) marks actions and selection. `signal` (amber) and `danger` (red) mark status. `tests/test_theme.py` keeps text at 4.5:1 and icons at 3:1 on both palettes, so check that test after changing colours.
+Build the controls from `ui/widgets.py`, not from raw Flet buttons:
+- `button(kind, label, ...)` is every button. `filled` is the one main action on a screen or dialog, `outlined` is any other action, `text` is Cancel, `text_danger` is a destructive row action, and `danger` is the confirm button of a destructive dialog. Its label carries no colour, so it follows the button's state.
+- `screen_frame(title, body, subtitle=..., hue=..., meta=..., toolbar=...)` is a screen: a `page_header` (a bar in the area's hue, the title, a subtitle and mono metadata on the right), an optional toolbar, then a body that scrolls itself.
+- `spec_section(title, children, description=..., action=...)` is a two-column block: the title and description on the left, the rows on the right. `sections(*blocks)` stacks them with hairlines. `spec_row(title, description, action, icon=..., hue=...)` is a row inside one, with a small inline icon and no tile.
+- Data such as serials, versions, paths and package names is set in mono with `text(..., mono=True)`. Nothing else is mono.
+- `StatusLine` is a dot and a label. Use its `set(label, color)`, because a parent's update does not send the children's colours.
+- `dialog_frame` in `ui/dialogs.py` builds every dialog.
+
+Colour has three jobs. Each area of the app owns an identity hue (`blue`, `green`, `violet`, `amber`, `rose`), set in `TOOL_ITEMS`/`APP_ITEMS` and on the reboot targets. It shows only in icons and in the tint of an `icon_tile`, never as a large fill. `accent` (clay) marks actions and selection. `signal` (amber) and `danger` (red) mark status. `tests/test_theme.py` keeps text at 4.5:1 and icons at 3:1 on both palettes, and control outlines at 3:1. Check it after changing colours. Snack bars take their label colour from `on_danger`, `on_signal` or `on_accent`.
 
 ### Persistence
 

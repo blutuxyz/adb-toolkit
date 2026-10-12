@@ -313,14 +313,15 @@ class Window:
 
     def notify(self, message: str, *, error: bool = False, success: bool = False) -> None:
         colors = palette()
+        # Each fill comes with the label colour that reads on it.
         if error:
-            background = colors.danger
+            background, label = colors.danger, colors.on_danger
         elif success:
-            background = colors.green
+            background, label = colors.accent, colors.on_accent
         else:
-            background = colors.text
+            background, label = colors.text, colors.background
         snack = ft.SnackBar(
-            content=text(message, color=colors.background),
+            content=text(message, color=label),
             bgcolor=background,
             show_close_icon=True,
             duration=5000,

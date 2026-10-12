@@ -10,17 +10,22 @@ from adb_toolkit.core.settings import DARK, LIGHT
 from adb_toolkit.ui.theme import (
     FONT_REGULAR,
     FONT_SEMIBOLD,
+    ICON_INLINE,
     PALETTES,
     RADIUS_CARD,
     RADIUS_INSET,
     RADIUS_TILE,
     SCROLL_PADDING,
     SECTION_GAP,
+    SPACE_L,
+    SPACE_M,
+    SPACE_S,
+    TYPE_BODY,
     Palette,
     palette,
 )
 from adb_toolkit.ui.views.base import View
-from adb_toolkit.ui.widgets import hue_color, ripple, status_dot, text, title_block
+from adb_toolkit.ui.widgets import hue_color, ripple, screen_frame, sections, spec_section, status_dot, text
 
 if TYPE_CHECKING:
     from adb_toolkit.ui.window import Window
@@ -32,24 +37,27 @@ _THEME_LABELS = (
 )
 _PREVIEW_WIDTH = 240
 _PREVIEW_HEIGHT = 140
-_CARD_PADDING = 16
+_CARD_PADDING = SPACE_L
 
 
 class SettingsView(View):
     def __init__(self, window: Window) -> None:
         super().__init__(window)
-        self.control = ft.ListView(
+        self.body = ft.ListView(
             [
-                title_block("Settings"),
-                ft.Container(height=SECTION_GAP),
-                text("Appearance", size=18, font=FONT_SEMIBOLD),
-                ft.Container(height=16),
-                ft.Row([self._choice(*entry) for entry in _THEME_LABELS], spacing=20),
+                *sections(
+                    spec_section(
+                        "Appearance",
+                        [ft.Row([self._choice(*entry) for entry in _THEME_LABELS], spacing=SPACE_L)],
+                        description="Light or dark. The change applies at once.",
+                    )
+                ),
             ],
             expand=True,
-            spacing=0,
+            spacing=SECTION_GAP,
             padding=SCROLL_PADDING,
         )
+        self.control = screen_frame("Settings", self.body, subtitle="How the window looks.", hue="amber")
 
     async def activate(self) -> None:
         self.window.update()
@@ -70,14 +78,14 @@ class SettingsView(View):
             content=ft.Column(
                 [
                     _layout_preview(PALETTES[mode]),
-                    ft.Container(height=12),
+                    ft.Container(height=SPACE_M),
                     ft.Row(
                         [
-                            ft.Icon(indicator, size=18, color=colors.accent if selected else colors.muted),
-                            ft.Icon(icon, size=18, color=hue_color(hue)),
-                            text(label, size=14, font=FONT_SEMIBOLD if selected else FONT_REGULAR),
+                            ft.Icon(indicator, size=ICON_INLINE, color=colors.accent if selected else colors.muted),
+                            ft.Icon(icon, size=ICON_INLINE, color=hue_color(hue)),
+                            text(label, size=TYPE_BODY, font=FONT_SEMIBOLD if selected else FONT_REGULAR),
                         ],
-                        spacing=10,
+                        spacing=SPACE_S,
                         vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     ),
                 ],

@@ -1,4 +1,4 @@
-"""Top bar: the device picker, plus the buttons that connect and refresh."""
+"""The device strip across the top: the selected phone, its state, and the buttons that connect and refresh."""
 
 from collections.abc import Callable
 
@@ -6,13 +6,26 @@ import flet as ft
 
 from adb_toolkit.core.devices import Device
 from adb_toolkit.core.session import Session
-from adb_toolkit.ui.theme import FONT_SEMIBOLD, GUTTER, HEADER_CONTROL_HEIGHT, RADIUS_CARD, palette
-from adb_toolkit.ui.widgets import device_state, ripple, status_dot, text
+from adb_toolkit.ui.theme import (
+    FONT_SEMIBOLD,
+    GUTTER,
+    HEADER_CONTROL_HEIGHT,
+    ICON_INLINE,
+    RADIUS_CARD,
+    SPACE_M,
+    SPACE_S,
+    TOPBAR_HEIGHT,
+    TYPE_BODY,
+    TYPE_CAPTION,
+    TYPE_TITLE,
+    palette,
+)
+from adb_toolkit.ui.widgets import button, device_state, ripple, status_dot, text
 
-PICKER_WIDTH = 340  # the chip and its menu share this width, so the menu lines up under the chip
+PICKER_WIDTH = 360  # the menu is at least this wide, so a long device name still has room
 MENU_ROW_HEIGHT = 56  # two lines: the name, then the address and state
 
-# One line each, cut with an ellipsis, so a long name never breaks the chip or the menu.
+# One line each, cut with an ellipsis, so a long name never breaks the strip or the menu.
 _ONE_LINE = {"no_wrap": True, "overflow": ft.TextOverflow.ELLIPSIS}
 
 
@@ -29,45 +42,45 @@ class TopBar:
             items=[],
             content=ft.Container(),
             padding=0,
-            # Drop the menu under the chip. The default draws it over the chip.
+            # Drop the menu under the strip. The default draws it over the device name.
             menu_position=ft.PopupMenuPosition.UNDER,
-            menu_padding=ft.Padding.symmetric(vertical=8),
+            menu_padding=ft.Padding.symmetric(vertical=SPACE_S),
             size_constraints=ft.BoxConstraints(min_width=PICKER_WIDTH),
             bgcolor=colors.panel,
             elevation=6,
             shape=ft.RoundedRectangleBorder(radius=RADIUS_CARD),
         )
-        self._connect = ft.OutlinedButton(
-            content=text("Connect over Wi-Fi"),
+        self._connect = button(
+            "outlined",
+            "Connect over Wi-Fi",
             icon=ft.Icons.WIFI,
-            icon_color=colors.accent,
             height=HEADER_CONTROL_HEIGHT,
             on_click=lambda _: on_connect(),
         )
         self._refresh = ft.IconButton(
             icon=ft.Icons.REFRESH,
             tooltip="Refresh devices",
-            icon_color=colors.accent,
+            icon_color=colors.muted,
             width=HEADER_CONTROL_HEIGHT,
             height=HEADER_CONTROL_HEIGHT,
             on_click=lambda _: on_refresh(),
         )
         self.control = ft.Container(
-            height=72,
+            height=TOPBAR_HEIGHT,
             bgcolor=colors.bar,
             padding=ft.Padding.symmetric(horizontal=GUTTER),
             border=ft.Border.only(bottom=ft.BorderSide(1, colors.line)),
             content=ft.Row(
-                [self._picker, self._connect, self._refresh],
-                spacing=10,
+                [self._picker, ft.Container(expand=True), self._connect, self._refresh],
+                spacing=SPACE_M,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
             ),
         )
 
     def show(self, session: Session) -> None:
-        """Redraw the picker for the current device list and selection."""
+        """Redraw the device name and the menu for the current device list and selection."""
         selected = session.selected_device
-        self._picker.content = _chip(selected, len(session.devices))
+        self._picker.content = _strip_name(selected, len(session.devices))
         self._picker.items = self._menu_items(session)
         self.control.update()
 
@@ -91,61 +104,57 @@ class TopBar:
         ]
 
 
-def _chip(device: Device | None, count: int) -> ft.Container:
+def _strip_name(device: Device | None, count: int) -> ft.Container:
+    """The selected phone, big: its name, then the serial and state in mono. Clicking it opens the list."""
     colors = palette()
-    _, dot_color = device_state(device)
+    _, lamp_color = device_state(device)
     if device is None:
         title = "No device"
         subline = "Connect a phone" if count == 0 else "Choose a device"
     else:
         title, subline = _device_lines(device)
     return ft.Container(
-        width=PICKER_WIDTH,
-        height=HEADER_CONTROL_HEIGHT,
-        padding=ft.Padding.symmetric(horizontal=16),
-        border_radius=HEADER_CONTROL_HEIGHT / 2,
-        bgcolor=colors.panel,
-        border=ft.Border.all(1, colors.line),
+        padding=ft.Padding.symmetric(vertical=SPACE_S),
+        border_radius=RADIUS_CARD,
         ink=True,
         ink_color=ripple(),
         content=ft.Row(
             [
-                status_dot(dot_color, size=9),
+                status_dot(lamp_color, size=10),
                 ft.Column(
                     [
-                        text(title, size=14, font=FONT_SEMIBOLD, **_ONE_LINE),
-                        text(subline, size=12, mono=True, color=colors.muted, **_ONE_LINE),
+                        text(title, size=TYPE_TITLE, font=FONT_SEMIBOLD, **_ONE_LINE),
+                        text(subline, size=TYPE_CAPTION, mono=True, color=colors.muted, **_ONE_LINE),
                     ],
-                    spacing=1,
+                    spacing=0,
                     tight=True,
-                    expand=True,
                 ),
-                ft.Icon(ft.Icons.UNFOLD_MORE, size=18, color=colors.muted),
+                ft.Icon(ft.Icons.UNFOLD_MORE, size=ICON_INLINE, color=colors.muted),
             ],
-            spacing=12,
+            spacing=SPACE_M,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
         ),
     )
 
 
 def _menu_row(device: Device) -> ft.Row:
-    """One device in the picker menu, laid out like the chip: name on top, address and state below."""
-    _, dot_color = device_state(device)
+    """One device in the picker menu, laid out like the strip: name on top, address and state below."""
+    _, lamp_color = device_state(device)
     title, subline = _device_lines(device)
     return ft.Row(
         [
-            status_dot(dot_color, size=8),
+            status_dot(lamp_color, size=8),
             ft.Column(
                 [
-                    text(title, size=14, font=FONT_SEMIBOLD, **_ONE_LINE),
-                    text(subline, size=12, mono=True, color=palette().muted, **_ONE_LINE),
+                    text(title, size=TYPE_BODY, font=FONT_SEMIBOLD, **_ONE_LINE),
+                    text(subline, size=TYPE_CAPTION, mono=True, color=palette().muted, **_ONE_LINE),
                 ],
-                spacing=1,
+                spacing=0,
                 tight=True,
                 expand=True,
             ),
         ],
-        spacing=12,
+        spacing=SPACE_M,
         vertical_alignment=ft.CrossAxisAlignment.CENTER,
     )
 

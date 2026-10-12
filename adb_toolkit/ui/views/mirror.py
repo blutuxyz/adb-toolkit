@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING
 import flet as ft
 
 from adb_toolkit.core.scrcpy import MirrorOptions, ScrcpyError
-from adb_toolkit.ui.theme import CONTROL_HEIGHT, FONT_SEMIBOLD, palette
-from adb_toolkit.ui.widgets import action_row, hairline, text
+from adb_toolkit.ui.theme import CONTROL_HEIGHT, ICON_INLINE, SPACE_M, SPACE_S, SPACE_XS, palette
+from adb_toolkit.ui.widgets import button, hairline, spec_row, text
 
 if TYPE_CHECKING:
     from adb_toolkit.ui.views.base import View
@@ -18,6 +18,8 @@ if TYPE_CHECKING:
 
 # "0" keeps the phone's own resolution.
 _SIZES = (("0", "Original"), ("1440", "1440 px"), ("1080", "1080 px"), ("720", "720 px"))
+# Lines the options up under the row's title, past its icon.
+_INDENT = ICON_INLINE + SPACE_M
 
 
 class MirrorPanel:
@@ -29,24 +31,27 @@ class MirrorPanel:
         colors = palette()
 
         # Named after the methods they call, so no attribute hides a handler.
-        self._start_button = ft.FilledButton(
-            content=text("Start"),
+        self._start_button = button(
+            "filled",
+            "Start",
             icon=ft.Icons.PLAY_ARROW,
             on_click=lambda _: self.window.page.run_task(self._start_mirror),
         )
-        self._stop_button = ft.OutlinedButton(
-            content=text("Stop"),
+        self._stop_button = button(
+            "outlined",
+            "Stop",
             icon=ft.Icons.STOP,
             visible=False,
             on_click=lambda _: self.window.page.run_task(self._stop_mirror),
         )
-        self._install_button = ft.OutlinedButton(
-            content=text("Install scrcpy"),
+        self._install_button = button(
+            "outlined",
+            "Install scrcpy",
             icon=ft.Icons.DOWNLOAD,
             visible=False,
             on_click=lambda _: self.window.page.run_task(self.window.update_scrcpy),
         )
-        self._status = text("", size=13, color=colors.muted)
+        self._status = text("", color=colors.muted)
         self._stay_awake = ft.Switch(
             label="Keep the phone awake",
             value=self._options.stay_awake,
@@ -71,38 +76,35 @@ class MirrorPanel:
             width=160,
             height=CONTROL_HEIGHT,
             border_radius=CONTROL_HEIGHT / 2,
-            border_color=colors.line,
+            border_color=colors.control_border,
             focused_border_color=colors.accent,
             on_select=self._on_size,
         )
 
         self.control = ft.Column(
             [
-                text("Screen", size=18, font=FONT_SEMIBOLD),
-                ft.Container(height=4),
-                action_row(
+                spec_row(
                     "Mirror and control",
                     "Mouse and keyboard control the phone from its window.",
-                    ft.Row([self._stop_button, self._start_button], spacing=12),
+                    ft.Row([self._stop_button, self._start_button], spacing=SPACE_M),
                     icon=ft.Icons.SCREEN_SHARE,
-                    hue="blue",
+                    hue="green",
                 ),
                 hairline(),
                 ft.Container(
-                    padding=ft.Padding.only(left=56, top=12, bottom=4),
-                    content=ft.Column([self._stay_awake, self._screen_off, self._show_touches], spacing=4),
+                    padding=ft.Padding.only(left=_INDENT, top=SPACE_M, bottom=SPACE_XS),
+                    content=ft.Column([self._stay_awake, self._screen_off, self._show_touches], spacing=SPACE_XS),
                 ),
                 ft.Container(
-                    padding=ft.Padding.only(left=56, top=8, bottom=8),
+                    padding=ft.Padding.only(left=_INDENT, top=SPACE_S, bottom=SPACE_S),
                     content=ft.Row(
-                        [text("Maximum size", size=14), ft.Container(expand=True), self._size],
+                        [text("Maximum size"), ft.Container(expand=True), self._size],
                         vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     ),
                 ),
-                ft.Container(height=8),
                 ft.Row(
                     [ft.Container(expand=True, content=self._status), self._install_button],
-                    spacing=12,
+                    spacing=SPACE_M,
                     vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
             ],

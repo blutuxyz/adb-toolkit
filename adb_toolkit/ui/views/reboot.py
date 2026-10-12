@@ -10,9 +10,9 @@ import flet as ft
 
 from adb_toolkit.core.devices import Device
 from adb_toolkit.core.process import CommandResult
-from adb_toolkit.ui.theme import SCROLL_PADDING, SECTION_GAP, palette
+from adb_toolkit.ui.theme import ICON_INLINE, SCROLL_PADDING, SECTION_GAP, SPACE_S, palette
 from adb_toolkit.ui.views.base import View
-from adb_toolkit.ui.widgets import action_row, hairline, text, title_block
+from adb_toolkit.ui.widgets import button, hairline, screen_frame, spec_row, spec_section, text
 
 if TYPE_CHECKING:
     from adb_toolkit.ui.window import Window
@@ -25,7 +25,7 @@ class RebootTarget:
     description: str
     done: str  # shown once the command has been sent
     icon: str
-    hue: str  # colour of the icon tile, one of the palette's hue names
+    hue: str  # colour of the icon, one of the palette's hue names
 
 
 class RebootView(View):
@@ -34,6 +34,8 @@ class RebootView(View):
         window: Window,
         *,
         title: str,
+        subtitle: str,
+        hue: str,
         targets: tuple[RebootTarget, ...],
         accepts: Callable[[Device], bool],
         not_accepted_hint: Callable[[Device], str],
@@ -44,39 +46,43 @@ class RebootView(View):
         self._accepts = accepts
         self._not_accepted_hint = not_accepted_hint
         self._send = send
-        self._hint = text("", size=13, color=palette().muted)
-        self._buttons: list[ft.FilledTonalButton] = []
+        self._busy = False
+        self._hint = text("", color=palette().muted)
+        self._buttons: list[ft.Control] = []
 
         rows: list[ft.Control] = []
         for index, item in enumerate(targets):
             if index:
                 rows.append(hairline())
-            button = ft.FilledTonalButton(
-                content=text("Reboot"),
+            reboot = button(
+                "outlined",
+                "Reboot",
                 disabled=True,
-                on_click=lambda _, entry=item: self.window.page.run_task(self._reboot, entry),
+                on_click=lambda _, entry=item, position=index: self.window.page.run_task(self._reboot, entry, position),
             )
-            self._buttons.append(button)
-            rows.append(action_row(item.title, item.description, button, icon=item.icon, hue=item.hue))
+            self._buttons.append(reboot)
+            rows.append(spec_row(item.title, item.description, reboot, icon=item.icon, hue=item.hue))
+        rows.append(ft.Container(padding=ft.Padding.only(top=SPACE_S), content=self._hint))
 
-        self.control = ft.ListView(
-            [
-                title_block(title),
-                ft.Container(height=SECTION_GAP),
-                *rows,
-                ft.Container(height=16),
-                self._hint,
-            ],
+        # The sections sit in a list that scrolls; the screen header stays where it is.
+        self.body = ft.ListView(
+            [spec_section("Reboot", rows, description="Send the phone to another mode.")],
             expand=True,
-            spacing=0,
+            spacing=SECTION_GAP,
             padding=SCROLL_PADDING,
         )
+        self.control = screen_frame(title, self.body, subtitle=subtitle, hue=hue)
+
+    def add_section(self, block: ft.Control) -> None:
+        """Add another spec section below the reboot section, with a hairline between them."""
+        self.body.controls.append(ft.Container(content=hairline()))
+        self.body.controls.append(block)
 
     async def activate(self) -> None:
         device = self.window.session.selected_device
         ready = device is not None and self._accepts(device)
-        for button in self._buttons:
-            button.disabled = not ready
+        for reboot in self._buttons:
+            reboot.disabled = not ready or self._busy
         # The hint says why the buttons are off. It stays hidden when they are on.
         self._hint.value = ""
         if device is None:
@@ -85,13 +91,38 @@ class RebootView(View):
             self._hint.value = self._not_accepted_hint(device)
         self.window.update()
 
-    async def _reboot(self, item: RebootTarget) -> None:
+    async def _reboot(self, item: RebootTarget, position: int) -> None:
         device = self.window.session.selected_device
         if device is None or not self._accepts(device):
             self.window.notify("The device is not ready for this command.", error=True)
             return
-        result = await self.window.run_blocking(self._send, device.serial, item.target)
+        reboot = self._buttons[position]
+        original = reboot.content
+        # While the command runs, every reboot button is off and the pressed one shows a spinner.
+        reboot.content = _pending_label("Rebooting")
+        self._busy = True
+        await self.activate()
+        reboot.update()
+        try:
+            result = await self.window.run_blocking(self._send, device.serial, item.target)
+        finally:
+            reboot.content = original
+            self._busy = False
+            await self.activate()
+            reboot.update()
         if result.ok:
             self.window.notify(item.done, success=True)
         else:
             self.window.notify(result.output or "The reboot did not go through.", error=True)
+
+
+def _pending_label(label: str) -> ft.Row:
+    return ft.Row(
+        [
+            ft.ProgressRing(width=ICON_INLINE, height=ICON_INLINE, stroke_width=2),
+            text(label),
+        ],
+        spacing=SPACE_S,
+        tight=True,
+        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+    )

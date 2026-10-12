@@ -45,6 +45,8 @@ class FastbootToolsView(RebootView):
         super().__init__(
             window,
             title="Fastboot Tools",
+            subtitle="Commands for a phone in bootloader mode.",
+            hue="violet",
             targets=_TARGETS,
             accepts=lambda device: device.mode == FASTBOOT,
             not_accepted_hint=lambda device: "Reboot to the bootloader from ADB Tools first.",

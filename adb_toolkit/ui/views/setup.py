@@ -8,13 +8,23 @@ from typing import TYPE_CHECKING
 import flet as ft
 
 from adb_toolkit.core.platform_tools import Progress
-from adb_toolkit.ui.theme import FONT_SEMIBOLD, palette
-from adb_toolkit.ui.widgets import brand_mark, text
+from adb_toolkit.ui.theme import (
+    FONT_SEMIBOLD,
+    SPACE_L,
+    SPACE_M,
+    SPACE_S,
+    SPACE_XL,
+    SPACE_XXL,
+    TYPE_DISPLAY,
+    palette,
+)
+from adb_toolkit.ui.widgets import brand_mark, button, text
 
 if TYPE_CHECKING:
     from adb_toolkit.ui.window import Window
 
 _CHECKING = "Checking the latest release"
+_WIDTH = 480  # the setup column is narrower than the window, so the progress bar reads as a single track
 
 
 class SetupView:
@@ -33,17 +43,15 @@ class SetupView:
         self.window = window
         colors = palette()
         self._progress = ft.ProgressBar(value=None, color=colors.accent, bgcolor=colors.line)
-        self._status = text(_CHECKING, size=14, color=colors.muted)
-        self._retry = ft.FilledButton(
-            content=text("Try again", color=colors.on_accent),
-            on_click=lambda _: retry(),
-        )
-        self._skip = ft.OutlinedButton(
-            content=text(skip_label),
+        self._status = text(_CHECKING, color=colors.muted)
+        self._retry = button("filled", "Try again", on_click=lambda _: retry())
+        self._skip = button(
+            "outlined",
+            skip_label,
             visible=skip is not None,
             on_click=lambda _: skip and skip(),
         )
-        self._actions = ft.Row([self._retry, self._skip], spacing=12, visible=False)
+        self._actions = ft.Row([self._retry, self._skip], spacing=SPACE_M, visible=False)
         self.control = ft.Container(
             expand=True,
             bgcolor=colors.background,
@@ -51,18 +59,18 @@ class SetupView:
             content=ft.Column(
                 [
                     brand_mark(56),
-                    ft.Container(height=24),
-                    text(title, size=26, font=FONT_SEMIBOLD),
-                    ft.Container(height=8),
+                    ft.Container(height=SPACE_XL),
+                    text(title, size=TYPE_DISPLAY, font=FONT_SEMIBOLD),
+                    ft.Container(height=SPACE_S),
                     text(body, color=colors.muted),
-                    ft.Container(height=32),
+                    ft.Container(height=SPACE_XXL),
                     self._progress,
-                    ft.Container(height=12),
+                    ft.Container(height=SPACE_M),
                     self._status,
-                    ft.Container(height=16),
+                    ft.Container(height=SPACE_L),
                     self._actions,
                 ],
-                width=480,
+                width=_WIDTH,
                 spacing=0,
                 tight=True,  # otherwise the column fills the height and the content sits at the top
                 horizontal_alignment=ft.CrossAxisAlignment.START,

@@ -11,9 +11,27 @@ from adb_toolkit.core.adb import AdbError
 from adb_toolkit.core.devices import FASTBOOT, Device
 from adb_toolkit.core.packages import SYSTEM, USER, AppEntry, restore_succeeded, uninstall_succeeded
 from adb_toolkit.ui.dialogs import confirm
-from adb_toolkit.ui.theme import CONTROL_HEIGHT, ROW_PADDING, SCROLL_PADDING, SECTION_GAP, palette
+from adb_toolkit.ui.theme import (
+    CONTROL_HEIGHT,
+    ROW_PADDING,
+    SCROLL_PADDING,
+    SECTION_GAP,
+    SPACE_L,
+    SPACE_M,
+    SPACE_XS,
+    TYPE_BODY,
+    TYPE_CAPTION,
+    palette,
+)
 from adb_toolkit.ui.views.base import View
-from adb_toolkit.ui.widgets import empty_state, hairline, letter_tile, text, title_block
+from adb_toolkit.ui.widgets import (
+    button,
+    empty_state,
+    hairline,
+    letter_tile,
+    screen_frame,
+    text,
+)
 
 if TYPE_CHECKING:
     from adb_toolkit.ui.window import Window
@@ -45,12 +63,12 @@ class AppsView(View):
         self._filters = ft.SegmentedButton(
             selected=[self._filter],
             segments=[
-                ft.Segment(value=value, label=text(label, size=13, no_wrap=True)) for value, label in FILTERS
+                ft.Segment(value=value, label=text(label, size=TYPE_BODY, no_wrap=True)) for value, label in FILTERS
             ],
             style=ft.ButtonStyle(side=ft.BorderSide(1, colors.line)),
             on_change=self._on_filter,
         )
-        self._count = text("", size=13, color=colors.muted)
+        self._count = text("", size=TYPE_CAPTION, color=colors.muted)
         self._list = ft.ListView(expand=True, spacing=0, padding=SCROLL_PADDING)
         self._body = ft.Container(expand=True, content=self._list)
 
@@ -66,21 +84,17 @@ class AppsView(View):
                     on_click=lambda _: self.window.page.run_task(self.activate),
                 ),
             ],
-            spacing=12,
+            spacing=SPACE_M,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
-        self.control = ft.Column(
-            [
-                title_block("Apps"),
-                ft.Container(height=SECTION_GAP),
-                self._toolbar,
-                ft.Container(height=8),
-                hairline(),
-                self._body,
-            ],
-            expand=True,
-            spacing=0,
+        # The toolbar stays with the title; the hairline underlines it and separates it from the list.
+        self.control = screen_frame(
+            "Apps",
+            self._body,
+            subtitle="Packages on the selected phone. Uninstalling removes an app for this user.",
+            hue="blue",
+            toolbar=ft.Column([self._toolbar, hairline()], spacing=SPACE_M, tight=True),
         )
 
     async def activate(self) -> None:
@@ -159,18 +173,18 @@ class AppsView(View):
         if self._pending == entry.package:
             action: ft.Control = ft.ProgressRing(width=18, height=18, stroke_width=2)
         elif entry.removed:
-            action = ft.FilledTonalButton(
-                content=text("Restore app"),
+            action = button(
+                "outlined",
+                "Restore app",
                 icon=ft.Icons.RESTORE,
-                icon_color=colors.green,
                 disabled=self._pending is not None,
                 on_click=lambda _, item=entry: self.window.page.run_task(self._restore, item),
             )
         else:
-            action = ft.TextButton(
-                content=text("Uninstall", color=colors.danger),
+            action = button(
+                "text_danger",
+                "Uninstall",
                 icon=ft.Icons.DELETE_OUTLINE,
-                icon_color=colors.danger,
                 disabled=self._pending is not None,
                 on_click=lambda _, item=entry: self._confirm_uninstall(item),
             )
@@ -182,16 +196,16 @@ class AppsView(View):
                     letter_tile(entry.package),
                     ft.Column(
                         [
-                            text(entry.package, size=14, mono=True),
-                            text(entry.tag, size=12, color=colors.muted),
+                            text(entry.package, size=TYPE_BODY, mono=True),
+                            text(entry.tag, size=TYPE_CAPTION, color=colors.muted),
                         ],
-                        spacing=2,
+                        spacing=SPACE_XS,
                         tight=True,
                         expand=True,
                     ),
                     action,
                 ],
-                spacing=16,
+                spacing=SPACE_L,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
             ),
         )
@@ -201,7 +215,7 @@ class AppsView(View):
     ) -> None:
         """Replace the list with a message. The toolbar stays only when the user can act on it."""
         state = empty_state(title, body, icon=icon, hue=hue, spinner=spinner)
-        self._body.content = ft.Container(padding=ft.Padding.only(top=48), content=state)
+        self._body.content = ft.Container(padding=ft.Padding.only(top=SECTION_GAP), content=state)
         self._count.value = ""
         self._toolbar.visible = toolbar
         self.window.update()

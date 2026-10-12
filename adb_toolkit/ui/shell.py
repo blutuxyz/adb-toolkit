@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import flet as ft
 
 from adb_toolkit.ui.sidebar import Sidebar
-from adb_toolkit.ui.theme import GUTTER, MOTION_SCREEN_MS, palette
+from adb_toolkit.ui.theme import GUTTER, MOTION_SCREEN_MS, SECTION_GAP, SPACE_XL, palette
 from adb_toolkit.ui.topbar import TopBar
 from adb_toolkit.ui.views.about import AboutView
 from adb_toolkit.ui.views.adb_tools import AdbToolsView
@@ -52,7 +52,7 @@ class Shell:
             view.control.key = key
         self._body = ft.Container(
             expand=True,
-            padding=ft.Padding.only(left=GUTTER, right=GUTTER, top=32, bottom=24),
+            padding=ft.Padding.only(left=GUTTER, right=GUTTER, top=SECTION_GAP, bottom=SPACE_XL),
             content=self._switcher,
         )
         colors = palette()
