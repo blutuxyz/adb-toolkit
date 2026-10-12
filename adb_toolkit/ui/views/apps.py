@@ -11,7 +11,7 @@ from adb_toolkit.core.adb import AdbError
 from adb_toolkit.core.devices import FASTBOOT, Device
 from adb_toolkit.core.packages import SYSTEM, USER, AppEntry, restore_succeeded, uninstall_succeeded
 from adb_toolkit.ui.dialogs import confirm
-from adb_toolkit.ui.theme import CONTROL_HEIGHT, ROW_PADDING, SECTION_GAP, palette
+from adb_toolkit.ui.theme import CONTROL_HEIGHT, ROW_PADDING, SCROLL_PADDING, SECTION_GAP, palette
 from adb_toolkit.ui.views.base import View
 from adb_toolkit.ui.widgets import empty_state, hairline, letter_tile, text, title_block
 
@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from adb_toolkit.ui.window import Window
 
 FILTERS = (("all", "All"), ("user", "User"), ("system", "System"), ("removed", "Removed"))
+
 
 class AppsView(View):
     def __init__(self, window: Window) -> None:
@@ -33,7 +34,7 @@ class AppsView(View):
         self._search = ft.TextField(
             hint_text="Search packages",
             prefix_icon=ft.Icons.SEARCH,
-            width=300,
+            expand=True,  # takes what the filters and the count leave, so the toolbar fits the smallest window
             height=CONTROL_HEIGHT,
             border_radius=CONTROL_HEIGHT / 2,
             border_color=colors.line,
@@ -46,17 +47,17 @@ class AppsView(View):
             segments=[
                 ft.Segment(value=value, label=text(label, size=13, no_wrap=True)) for value, label in FILTERS
             ],
+            style=ft.ButtonStyle(side=ft.BorderSide(1, colors.line)),
             on_change=self._on_filter,
         )
         self._count = text("", size=13, color=colors.muted)
-        self._list = ft.ListView(expand=True, spacing=0, padding=ft.Padding.only(right=8))
+        self._list = ft.ListView(expand=True, spacing=0, padding=SCROLL_PADDING)
         self._body = ft.Container(expand=True, content=self._list)
 
         self._toolbar = ft.Row(
             [
                 self._search,
                 self._filters,
-                ft.Container(expand=True),
                 self._count,
                 ft.IconButton(
                     icon=ft.Icons.REFRESH,

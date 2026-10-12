@@ -10,7 +10,7 @@ import flet as ft
 
 from adb_toolkit.core.devices import Device
 from adb_toolkit.core.process import CommandResult
-from adb_toolkit.ui.theme import SECTION_GAP, palette
+from adb_toolkit.ui.theme import SCROLL_PADDING, SECTION_GAP, palette
 from adb_toolkit.ui.views.base import View
 from adb_toolkit.ui.widgets import action_row, hairline, text, title_block
 
@@ -59,7 +59,7 @@ class RebootView(View):
             self._buttons.append(button)
             rows.append(action_row(item.title, item.description, button, icon=item.icon, hue=item.hue))
 
-        self.control = ft.Column(
+        self.control = ft.ListView(
             [
                 title_block(title),
                 ft.Container(height=SECTION_GAP),
@@ -69,7 +69,7 @@ class RebootView(View):
             ],
             expand=True,
             spacing=0,
-            scroll=ft.ScrollMode.AUTO,
+            padding=SCROLL_PADDING,
         )
 
     async def activate(self) -> None:

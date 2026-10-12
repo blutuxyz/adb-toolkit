@@ -1,9 +1,10 @@
 """Mirror a phone on this computer and control it with scrcpy.
 
 scrcpy is a separate program with its own releases, so the toolkit does not ship it.
-It is looked for in the toolkit's own folder, then on PATH. The toolkit starts one
-window per phone and keeps track of it. scrcpy does the streaming and the input, and
-it talks to the phone through the adb named in the ADB environment variable.
+`scrcpy_install.py` downloads it into the toolkit's own folder. It is looked for there
+first, then on PATH. The toolkit starts one window per phone and keeps track of it.
+scrcpy does the streaming and the input, and it talks to the phone through the adb
+named in the ADB environment variable.
 """
 
 import atexit
@@ -21,6 +22,11 @@ log = logging.getLogger(__name__)
 
 EXECUTABLE_NAME = "scrcpy.exe" if sys.platform == "win32" else "scrcpy"
 STOP_TIMEOUT = 3  # seconds to wait for a window to close before it is killed
+
+
+def managed_executable() -> Path:
+    """Where the toolkit's own copy of scrcpy lives. It may not exist yet."""
+    return paths.scrcpy_dir() / EXECUTABLE_NAME
 
 
 class ScrcpyError(RuntimeError):
@@ -65,7 +71,7 @@ class Scrcpy:
         """The scrcpy program to run, or None when it is not installed."""
         if self._executable is not None:
             return self._executable if self._executable.is_file() else None
-        managed = paths.scrcpy_dir() / EXECUTABLE_NAME
+        managed = managed_executable()
         if managed.is_file():
             return managed
         found = shutil.which("scrcpy")
@@ -74,6 +80,9 @@ class Scrcpy:
     def running(self, serial: str) -> bool:
         process = self._processes.get(serial)
         return process is not None and process.poll() is None
+
+    def any_running(self) -> bool:
+        return any(self.running(serial) for serial in self._processes)
 
     def start(self, serial: str, options: MirrorOptions, adb: str) -> subprocess.Popen:
         """Open a mirror window for the phone. Raises ScrcpyError if one is open already or scrcpy is missing."""

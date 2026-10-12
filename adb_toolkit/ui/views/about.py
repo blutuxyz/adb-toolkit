@@ -74,7 +74,7 @@ def _link_row(label: str, url: str, on_click, icon: str, hue: str) -> ft.Contain
                 ),
                 ft.Icon(ft.Icons.OPEN_IN_NEW, size=18, color=colors.muted),
             ],
-            spacing=20,
+            spacing=16,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
         ),
     )

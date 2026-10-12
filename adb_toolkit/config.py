@@ -1,4 +1,4 @@
-"""App-wide constants: names, links and where platform-tools come from."""
+"""App-wide constants: names, links and where platform-tools and scrcpy come from."""
 
 from pathlib import Path
 
@@ -14,8 +14,8 @@ PROJECT_URL = "https://github.com/blutuxyz/adb-toolkit"
 PLATFORM_TOOLS_REPOSITORY_URL = "https://dl.google.com/android/repository/repository2-3.xml"
 PLATFORM_TOOLS_BASE_URL = "https://dl.google.com/android/repository/"
 
-# scrcpy is installed by the user. The app only links to its releases page.
-SCRCPY_RELEASES_URL = "https://github.com/Genymobile/scrcpy/releases"
+# scrcpy is downloaded from its GitHub releases. The API names each build and gives its SHA-256.
+SCRCPY_RELEASES_API_URL = "https://api.github.com/repos/Genymobile/scrcpy/releases/latest"
 
 # GitHub's latest-release endpoint for this app. It answers 404 until the first release is published.
 APP_RELEASES_API_URL = "https://api.github.com/repos/blutuxyz/adb-toolkit/releases/latest"

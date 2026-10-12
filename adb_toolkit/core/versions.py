@@ -41,3 +41,24 @@ def parse_tool_version(output: str) -> Version | None:
 def needs_update(installed: Version | None, latest: Version) -> bool:
     """True when the installed copy is missing or older than the latest release."""
     return installed is None or latest > installed
+
+
+# `scrcpy --version` starts with "scrcpy 3.3.3 <https://...>". Older builds print "scrcpy 2.0".
+_SCRCPY_VERSION = re.compile(r"^\s*scrcpy\s+v?(\d+)\.(\d+)(?:\.(\d+))?", re.IGNORECASE | re.MULTILINE)
+_RELEASE_TAG = re.compile(r"^v?(\d+)\.(\d+)(?:\.(\d+))?$")
+
+
+def _from_parts(major: str, minor: str, micro: str | None) -> Version:
+    return Version(int(major), int(minor), int(micro or 0))
+
+
+def parse_scrcpy_version(output: str) -> Version | None:
+    """Read the version from the output of `scrcpy --version`."""
+    match = _SCRCPY_VERSION.search(output)
+    return _from_parts(*match.groups()) if match else None
+
+
+def parse_release_tag(tag: str) -> Version | None:
+    """Read a release tag such as 'v5.0.1' or 'v2.0'. Returns None for anything else."""
+    match = _RELEASE_TAG.match(tag.strip())
+    return _from_parts(*match.groups()) if match else None

@@ -47,7 +47,7 @@ There is no build or packaging step yet. The tests need no phone, no Flet window
 
 1. `apply_theme()`, then `local_install()` in a worker thread. This checks the managed copy of adb and fastboot and reads their versions.
 2. If they are missing, `first_run()` shows `SetupView` and calls `install_platform_tools()`, which fetches the feed, downloads and installs, then calls `enter_app()`.
-3. Otherwise `enter_app()` runs: `ensure_on_path`, builds the `Shell`, opens the Apps screen, then starts `check_updates` and `_poll_devices` as asyncio tasks.
+3. Otherwise `enter_app()` runs: `ensure_on_path`, installs scrcpy behind the "Updating scrcpy" screen if the toolkit has no copy, builds the `Shell`, opens the Apps screen, then starts `check_updates`, `refresh_scrcpy` and `_poll_devices` as asyncio tasks.
 
 ### Tool lookup and install
 
@@ -65,7 +65,13 @@ There is no build or packaging step yet. The tests need no phone, no Flet window
 
 ### Screen mirroring
 
-`core/scrcpy.py` is the only place that knows about scrcpy. It finds the program in the toolkit's folder, then on PATH, and starts one window per phone with `ADB` set to the toolkit's own adb. `Scrcpy.running()` checks the process, and `atexit` closes the windows on exit. scrcpy's output goes to `scrcpy.log`, which is shown when a window dies on its own. The screen section is `ui/views/mirror.py`, embedded in `AdbToolsView`. Its watcher task is what turns "window closed" into a refresh.
+`core/scrcpy.py` is the only place that knows how to run scrcpy. It finds the program in the toolkit's folder, then on PATH, and starts one window per phone with `ADB` set to the toolkit's own adb. `Scrcpy.running()` checks the process, and `atexit` closes the windows on exit. scrcpy's output goes to `scrcpy.log`, which is shown when a window dies on its own. The screen section is `ui/views/mirror.py`, embedded in `AdbToolsView`. Its watcher task is what turns "window closed" into a refresh.
+
+`core/scrcpy_install.py` downloads scrcpy. It reads GitHub's latest-release JSON, picks the asset for `sys.platform` and `platform.machine()` (`asset_prefix`), and checks the asset's `digest` (SHA-256), or `SHA256SUMS.txt` when the API gives no digest. A download without a known checksum is refused. `install_archive()` unpacks a `.zip` or `.tar.gz` into a staging folder and swaps it into `scrcpy_dir()`, keeping the old copy until the new one is in place. `Window.update_scrcpy()` runs it behind the "Updating scrcpy" screen. `enter_app()` calls it when `managed_executable()` is missing, and `refresh_scrcpy()` calls it in the background when the installed version (`scrcpy --version`) is older than the release and no mirror window is open. A failure leaves the screen up with Try again and a way out.
+
+### Full-window screens
+
+`SetupView` is the download screen for platform-tools and for scrcpy. It replaces `page.controls`, so the main window is off the page while it shows. `Window._covered` is true during that time, and every `shell` update (`devices_changed`, `updates_changed`) is skipped through `_shell_visible`, because updating a detached control raises. When the screen closes, `update_scrcpy` puts `shell.root` back and redraws once. Content inside such a screen needs `tight=True` on its `Column`, or the column fills the height and sits at the top.
 
 ### Blocking work from the UI
 
@@ -74,6 +80,7 @@ Flet runs on asyncio, so anything that touches a subprocess or the network goes 
 ### Screens and navigation
 
 - Sidebar keys and `Shell.views` keys must match: `apps`, `adb`, `fastboot`, `settings`, `updates`, `about`. To add a screen, subclass `View` in `ui/views/base.py`, register it in `Shell.views`, and add a tuple to `TOOL_ITEMS` or `APP_ITEMS` in `sidebar.py`.
+- A scrolling screen is a `ListView` with `SCROLL_PADDING`, not a scrolling `Column`, so the scrollbar does not sit on the buttons at the right edge.
 - A `View` builds its controls in `__init__` and refreshes in `activate()`, which runs each time the screen opens. `on_devices_changed()` runs only for the visible screen.
 - Screens swap inside an `AnimatedSwitcher`, which fades only when the content's key changes. `Shell` sets `view.control.key` from its `views` key, so keep those keys unique.
 - A plain `Container` with `on_click` needs `ink=True` and `ink_color=ripple()`, or it gives no press feedback. `tests/test_shell.py` checks this for every clickable container.

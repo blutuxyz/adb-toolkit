@@ -83,6 +83,10 @@ class Shell:
     def render_topbar(self) -> None:
         self.topbar.show(self.window.session)
 
+    def scrcpy_changed(self) -> None:
+        """scrcpy was installed or updated. The screen section shows whether it can start."""
+        self.views["adb"].mirror.refresh()
+
     def updates_changed(self) -> None:
         session = self.window.session
         self.sidebar.set_update_badge(session.update_available or session.app_update_available)

@@ -14,10 +14,14 @@ from adb_toolkit.config import APP_NAME
 from adb_toolkit.core import paths
 from adb_toolkit.core.app_updates import fetch_latest_release
 from adb_toolkit.core.path_env import ensure_on_path
+from adb_toolkit.core import scrcpy_install
 from adb_toolkit.core.platform_tools import PlatformToolsError, Progress, install, local_install
+from adb_toolkit.core.scrcpy import managed_executable
+from adb_toolkit.core.scrcpy_install import RemoteScrcpy, ScrcpyInstallError
 from adb_toolkit.core.session import Session
 from adb_toolkit.core.settings import DARK
 from adb_toolkit.core.updates import UpdateError, fetch_latest
+from adb_toolkit.core.versions import needs_update
 from adb_toolkit.ui.dialogs import show_connect_wifi_dialog
 from adb_toolkit.ui.shell import Shell
 from adb_toolkit.ui.theme import (
@@ -47,6 +51,7 @@ class Window:
         self.shell: Shell | None = None
         self._launcher: ft.UrlLauncher | None = None
         self._polling = False
+        self._covered = False  # a full-window screen has replaced the main window, which is then off the page
         page.title = APP_NAME
         page.padding = 0
         page.spacing = 0
@@ -70,7 +75,12 @@ class Window:
             await self.first_run()
 
     async def first_run(self) -> None:
-        setup = SetupView(self)
+        setup = SetupView(
+            self,
+            title="Set up platform-tools",
+            body="Downloads Google's adb and fastboot and adds them to your PATH.",
+            retry=lambda: self.page.run_task(self.first_run),
+        )
         self.page.controls = [setup.control]
         self.page.update()
         error = await self.install_platform_tools(setup.show_progress)
@@ -81,6 +91,8 @@ class Window:
 
     async def enter_app(self) -> None:
         self._add_to_path()
+        if not managed_executable().is_file():
+            await self.update_scrcpy()
         self.shell = Shell(self)
         self.page.controls = [self.shell.root]
         self.page.update()
@@ -89,6 +101,7 @@ class Window:
         # Startup runs inside the page's event loop. Background jobs go on that
         # loop directly, because page.run_task needs the session to be connected.
         asyncio.ensure_future(self.check_updates())
+        asyncio.ensure_future(self.refresh_scrcpy())
         if not self._polling:
             self._polling = True
             asyncio.ensure_future(self._poll_devices())
@@ -120,22 +133,26 @@ class Window:
 
     # Devices
 
+    @property
+    def _shell_visible(self) -> bool:
+        return self.shell is not None and not self._covered
+
     async def select_device(self, serial: str) -> None:
         self.session.select(serial)
-        if self.shell:
+        if self._shell_visible:
             await self.shell.devices_changed()
 
     async def refresh_devices(self) -> None:
         devices = await asyncio.to_thread(self.session.scan)
         self.session.update_devices(devices)
-        if self.shell:
+        if self._shell_visible:
             await self.shell.devices_changed()
 
     async def _poll_devices(self) -> None:
         while True:
             try:
                 devices = await asyncio.to_thread(self.session.scan)
-                if self.session.update_devices(devices) and self.shell:
+                if self.session.update_devices(devices) and self._shell_visible:
                     await self.shell.devices_changed()
             except Exception:  # one failed pass must not stop the polling for good
                 log.exception("Device scan failed")
@@ -173,6 +190,81 @@ class Window:
         self._add_to_path()
         return None
 
+    # scrcpy
+
+    async def update_scrcpy(self, remote: RemoteScrcpy | None = None) -> bool:
+        """Show the 'Updating scrcpy' screen while scrcpy is downloaded and installed. Returns True on success.
+
+        The screen replaces the main window while it runs, which also works before that window exists.
+        When a download fails the screen offers another try, or a way out that keeps what was there.
+        """
+        decision: asyncio.Future[bool] | None = None
+
+        def decide(retry: bool) -> None:
+            if decision is not None and not decision.done():
+                decision.set_result(retry)
+
+        first_time = not managed_executable().is_file()
+        screen = SetupView(
+            self,
+            title="Updating scrcpy",
+            body="Downloads scrcpy so the phone's screen can be mirrored and controlled.",
+            retry=lambda: decide(True),
+            skip=lambda: decide(False),
+            skip_label="Continue without scrcpy" if first_time else "Keep the current version",
+        )
+        self._covered = True
+        self.page.controls = [screen.control]
+        self.page.update()
+        progress = Progress()
+
+        def record(done: int, total: int) -> None:
+            progress.done, progress.total = done, total
+
+        try:
+            while True:
+                progress.done = progress.total = 0
+                try:
+                    if remote is None:
+                        remote = await asyncio.to_thread(scrcpy_install.fetch_latest)
+                    await self.run_blocking(
+                        scrcpy_install.install, remote, record, on_tick=lambda: screen.show_progress(progress)
+                    )
+                    return True
+                except ScrcpyInstallError as error:
+                    log.warning("scrcpy install failed: %s", error)
+                    decision = asyncio.get_running_loop().create_future()
+                    screen.show_error(str(error))
+                    if not await decision:
+                        return False
+                    screen.reset()
+        finally:
+            self._covered = False
+            if self.shell:
+                # Without a main window yet, the screen stays until enter_app builds one.
+                self.page.controls = [self.shell.root]
+                self.page.update()
+                await self.shell.devices_changed()
+                self.shell.updates_changed()
+                self.shell.scrcpy_changed()
+
+    async def refresh_scrcpy(self) -> None:
+        """Update the toolkit's copy of scrcpy when GitHub has a newer release. Quiet when there is nothing to do."""
+        executable = managed_executable()
+        if not executable.is_file():
+            return
+        installed = await asyncio.to_thread(scrcpy_install.installed_version, executable)
+        if installed is None:
+            return  # a copy that does not report a version is left as it is
+        try:
+            remote = await asyncio.to_thread(scrcpy_install.fetch_latest)
+        except ScrcpyInstallError as error:
+            log.warning("scrcpy update check failed: %s", error)
+            return
+        # Windows will not replace the program while a mirror window has it open.
+        if needs_update(installed, remote.version) and not self.session.scrcpy.any_running():
+            await self.update_scrcpy(remote)
+
     async def check_updates(self) -> str | None:
         """Look up the latest platform-tools and ADB Toolkit releases. Returns the errors, one per line, or None."""
         errors: list[str] = []
@@ -187,7 +279,7 @@ class Window:
         except UpdateError as error:
             log.warning("App update check failed: %s", error)
             errors.append(str(error))
-        if self.shell:
+        if self._shell_visible:
             self.shell.updates_changed()
         return "\n".join(errors) or None
 

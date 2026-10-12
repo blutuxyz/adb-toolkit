@@ -38,6 +38,7 @@ RADIUS_CARD = 14  # surfaces: cards, dialogs, menus and snack bars
 GUTTER = 36  # window edge to content, and the top bar's side padding
 SECTION_GAP = 32  # between a screen's title block and its content
 ROW_PADDING = 16  # vertical padding of a list row
+SCROLL_PADDING = ft.Padding.only(right=8)  # keeps a scrollbar off the content it scrolls
 
 # Motion. Screens cross-fade and selections ease into place. Keep both short.
 MOTION_SCREEN_MS = 220

@@ -9,7 +9,7 @@ import flet as ft
 from adb_toolkit.config import APP_VERSION, PROJECT_URL
 from adb_toolkit.core.platform_tools import Progress, managed_binary
 from adb_toolkit.core.versions import Version
-from adb_toolkit.ui.theme import FONT_SEMIBOLD, ROW_PADDING, SECTION_GAP, palette
+from adb_toolkit.ui.theme import FONT_SEMIBOLD, ROW_PADDING, SCROLL_PADDING, SECTION_GAP, palette
 from adb_toolkit.ui.views.base import View
 from adb_toolkit.ui.widgets import hairline, icon_tile, status_dot, text, title_block
 
@@ -22,7 +22,7 @@ class UpdatesView(View):
         super().__init__(window)
         colors = palette()
         self._error = text("", size=13, color=colors.danger)
-        self._progress = ft.ProgressBar(value=0, visible=False, color=colors.accent)
+        self._progress = ft.ProgressBar(value=0, visible=False, color=colors.accent, bgcolor=colors.line)
         self._progress_text = text("", size=13, color=colors.muted)
         self._check = ft.OutlinedButton(
             content=text("Check for updates"),
@@ -53,7 +53,7 @@ class UpdatesView(View):
             on_click=lambda _: self.window.page.run_task(self._open_app_release),
         )
 
-        self.control = ft.Column(
+        self.control = ft.ListView(
             [
                 ft.Row(
                     [title_block("Updates"), ft.Container(expand=True), self._check],
@@ -92,7 +92,7 @@ class UpdatesView(View):
             ],
             expand=True,
             spacing=0,
-            scroll=ft.ScrollMode.AUTO,
+            padding=SCROLL_PADDING,
         )
 
     async def activate(self) -> None:

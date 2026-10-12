@@ -8,10 +8,8 @@ from typing import TYPE_CHECKING
 
 import flet as ft
 
-from adb_toolkit.config import SCRCPY_RELEASES_URL
-from adb_toolkit.core import paths
 from adb_toolkit.core.scrcpy import MirrorOptions, ScrcpyError
-from adb_toolkit.ui.theme import FONT_SEMIBOLD, palette
+from adb_toolkit.ui.theme import CONTROL_HEIGHT, FONT_SEMIBOLD, palette
 from adb_toolkit.ui.widgets import action_row, hairline, text
 
 if TYPE_CHECKING:
@@ -42,11 +40,11 @@ class MirrorPanel:
             visible=False,
             on_click=lambda _: self.window.page.run_task(self._stop_mirror),
         )
-        self._get_button = ft.OutlinedButton(
-            content=text("Get scrcpy"),
-            icon=ft.Icons.OPEN_IN_NEW,
+        self._install_button = ft.OutlinedButton(
+            content=text("Install scrcpy"),
+            icon=ft.Icons.DOWNLOAD,
             visible=False,
-            on_click=lambda _: self.window.page.run_task(self.window.open_url, SCRCPY_RELEASES_URL),
+            on_click=lambda _: self.window.page.run_task(self.window.update_scrcpy),
         )
         self._status = text("", size=13, color=colors.muted)
         self._stay_awake = ft.Switch(
@@ -71,6 +69,10 @@ class MirrorPanel:
             options=[ft.DropdownOption(key=key, text=label) for key, label in _SIZES],
             value="0",
             width=160,
+            height=CONTROL_HEIGHT,
+            border_radius=CONTROL_HEIGHT / 2,
+            border_color=colors.line,
+            focused_border_color=colors.accent,
             on_select=self._on_size,
         )
 
@@ -97,8 +99,9 @@ class MirrorPanel:
                         vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     ),
                 ),
+                ft.Container(height=8),
                 ft.Row(
-                    [ft.Container(expand=True, content=self._status), self._get_button],
+                    [ft.Container(expand=True, content=self._status), self._install_button],
                     spacing=12,
                     vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
@@ -117,10 +120,10 @@ class MirrorPanel:
 
         self._start_button.disabled = not (ready and installed and not running)
         self._stop_button.visible = running
-        self._get_button.visible = not installed
+        self._install_button.visible = not installed
         self._status.color = colors.muted
         if not installed:
-            self._status.value = f"scrcpy is not installed. Put it in {paths.scrcpy_dir()} or on PATH."
+            self._status.value = "scrcpy is not installed."
             self._status.color = colors.signal
         elif device is None:
             self._status.value = "Connect a phone to mirror it."

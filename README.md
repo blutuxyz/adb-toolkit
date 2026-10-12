@@ -8,6 +8,9 @@ One desktop window for `adb` and `fastboot`. Written in Python with
 - **Platform-tools on first start.** Downloads Google's platform-tools, checks the
   SHA-1 from Google's SDK feed, unpacks them into `%LOCALAPPDATA%\ADB Toolkit`
   and adds that folder to your user PATH.
+- **scrcpy, downloaded for you.** On first start, and whenever GitHub has a newer
+  release, an "Updating scrcpy" screen downloads scrcpy, checks its SHA-256 and
+  unpacks it into `%LOCALAPPDATA%\ADB Toolkit\scrcpy`.
 - **Updates.** Compares the installed adb and fastboot with the latest release and
   installs the new one when you ask. It also checks GitHub for a newer ADB Toolkit
   release and links to its release page.
@@ -61,6 +64,7 @@ adb_toolkit/
     devices.py, packages.py  parsers for device and package lists
     session.py             selected device, versions, settings
     scrcpy.py              find and run scrcpy, one mirror window per phone
+    scrcpy_install.py      download, verify and install scrcpy from GitHub
     settings.py, paths.py, versions.py, process.py
   ui/
     theme.py               palettes and the Material theme
@@ -82,8 +86,12 @@ tests/                     pytest suite
   `cmd package install-existing --user 0`. No root is needed.
 - **App icons.** adb does not give out app icons, so each app gets a letter tile
   for now.
-- **scrcpy.** Mirroring needs scrcpy, which the toolkit does not bundle. It looks for
-  `scrcpy.exe` in `%LOCALAPPDATA%\ADB Toolkit\scrcpy` and then on PATH. The toolkit
-  passes its own adb to scrcpy and closes any mirror windows when it exits.
+- **scrcpy.** The toolkit downloads scrcpy from its GitHub releases into
+  `%LOCALAPPDATA%\ADB Toolkit\scrcpy` and prefers that copy over one on PATH. If the
+  download fails, the "Updating scrcpy" screen offers another try or a way to carry on
+  without it, and the screen section has an Install scrcpy button. The update check
+  skips a run while a mirror window is open, because Windows will not replace a
+  program that is running. The toolkit passes its own adb to scrcpy and closes any
+  mirror windows when it exits.
 - **Not built yet:** install APK, sideload ROM, send file, custom command, flashing
   firmware, language selection and font size.

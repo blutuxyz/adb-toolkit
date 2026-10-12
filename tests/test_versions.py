@@ -1,6 +1,12 @@
 import pytest
 
-from adb_toolkit.core.versions import Version, needs_update, parse_tool_version
+from adb_toolkit.core.versions import (
+    Version,
+    needs_update,
+    parse_release_tag,
+    parse_scrcpy_version,
+    parse_tool_version,
+)
 
 ADB_VERSION_OUTPUT = """Android Debug Bridge version 1.0.41
 Version 37.0.1-13028021
@@ -45,3 +51,22 @@ def test_same_version_is_up_to_date():
 
 def test_older_install_needs_an_update():
     assert needs_update(Version(36, 0, 0), Version(37, 0, 1)) is True
+
+
+def test_scrcpy_prints_its_version_on_the_first_line():
+    output = "scrcpy 3.3.3 <https://github.com/Genymobile/scrcpy>\n\n dependencies"
+    assert parse_scrcpy_version(output) == Version(3, 3, 3)
+
+
+def test_an_old_scrcpy_version_without_a_third_number_reads_as_zero():
+    assert parse_scrcpy_version("scrcpy 2.0 <https://github.com/Genymobile/scrcpy>") == Version(2, 0, 0)
+
+
+def test_other_output_is_not_a_scrcpy_version():
+    assert parse_scrcpy_version("The system cannot find the file specified.") is None
+
+
+def test_release_tags_may_carry_a_v_and_skip_the_third_number():
+    assert parse_release_tag("v5.0.1") == Version(5, 0, 1)
+    assert parse_release_tag("v2.0") == Version(2, 0, 0)
+    assert parse_release_tag("nightly") is None

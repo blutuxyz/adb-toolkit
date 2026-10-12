@@ -14,6 +14,7 @@ from adb_toolkit.ui.theme import (
     RADIUS_CARD,
     RADIUS_INSET,
     RADIUS_TILE,
+    SCROLL_PADDING,
     SECTION_GAP,
     Palette,
     palette,
@@ -37,7 +38,7 @@ _CARD_PADDING = 16
 class SettingsView(View):
     def __init__(self, window: Window) -> None:
         super().__init__(window)
-        self.control = ft.Column(
+        self.control = ft.ListView(
             [
                 title_block("Settings"),
                 ft.Container(height=SECTION_GAP),
@@ -47,7 +48,7 @@ class SettingsView(View):
             ],
             expand=True,
             spacing=0,
-            scroll=ft.ScrollMode.AUTO,
+            padding=SCROLL_PADDING,
         )
 
     async def activate(self) -> None:
