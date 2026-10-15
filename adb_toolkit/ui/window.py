@@ -19,10 +19,11 @@ from adb_toolkit.core.platform_tools import PlatformToolsError, Progress, instal
 from adb_toolkit.core.scrcpy import managed_executable
 from adb_toolkit.core.scrcpy_install import RemoteScrcpy, ScrcpyInstallError
 from adb_toolkit.core.session import Session
-from adb_toolkit.core.settings import DARK
+from adb_toolkit.core.settings import DARK, FONT_SCALES
 from adb_toolkit.core.updates import UpdateError, fetch_latest
 from adb_toolkit.core.versions import needs_update
 from adb_toolkit.ui.dialogs import show_connect_wifi_dialog
+from adb_toolkit.ui.i18n import activate_language, t
 from adb_toolkit.ui.shell import Shell
 from adb_toolkit.ui.theme import (
     DARK_PALETTE,
@@ -31,6 +32,7 @@ from adb_toolkit.ui.theme import (
     PALETTES,
     RADIUS_CARD,
     activate,
+    activate_text_scale,
     build_theme,
     palette,
 )
@@ -50,6 +52,8 @@ class Window:
         self.session = session
         self.shell: Shell | None = None
         self._launcher: ft.UrlLauncher | None = None
+        self._file_picker: ft.FilePicker | None = None
+        self._jobs = 0  # long jobs running now; settings do not change while one runs
         self._polling = False
         self._covered = False  # a full-window screen has replaced the main window, which is then off the page
         page.title = APP_NAME
@@ -77,8 +81,8 @@ class Window:
     async def first_run(self) -> None:
         setup = SetupView(
             self,
-            title="Set up platform-tools",
-            body="Downloads Google's adb and fastboot and adds them to your PATH.",
+            title=t("Set up platform-tools"),
+            body=t("Downloads Google's adb and fastboot and adds them to your PATH."),
             retry=lambda: self.page.run_task(self.first_run),
         )
         self.page.controls = [setup.control]
@@ -96,7 +100,7 @@ class Window:
         self.shell = Shell(self)
         self.page.controls = [self.shell.root]
         self.page.update()
-        self.shell.render_topbar()
+        self.shell.render_device()
         await self.shell.open("apps")
         # Startup runs inside the page's event loop. Background jobs go on that
         # loop directly, because page.run_task needs the session to be connected.
@@ -109,9 +113,12 @@ class Window:
     # Theme
 
     def apply_theme(self) -> None:
-        mode = self.session.settings.theme_mode
+        settings = self.session.settings
+        mode = settings.theme_mode
         colors = PALETTES[mode]
         activate(colors)
+        activate_text_scale(FONT_SCALES[settings.font_scale])
+        activate_language(settings.language)
         self.page.theme = build_theme(LIGHT_PALETTE)
         self.page.dark_theme = build_theme(DARK_PALETTE)
         self.page.theme_mode = ft.ThemeMode.DARK if mode == DARK else ft.ThemeMode.LIGHT
@@ -120,7 +127,17 @@ class Window:
     async def set_theme_mode(self, mode: str) -> None:
         if mode == self.session.settings.theme_mode:
             return
-        self.session.set_theme_mode(mode)
+        await self.change_settings(theme_mode=mode)
+
+    async def change_settings(self, **changes: str) -> None:
+        """Save new settings and rebuild the shell, so every screen is drawn with them.
+
+        Refused while a job runs, because the job's controls would be thrown away.
+        """
+        if self.busy:
+            self.notify(t("Wait for the running task to finish."), error=True)
+            return
+        self.session.set_settings(**changes)
         self.apply_theme()
         if self.shell is None:
             return
@@ -128,7 +145,7 @@ class Window:
         self.shell = Shell(self)
         self.page.controls = [self.shell.root]
         self.page.update()
-        self.shell.render_topbar()
+        self.shell.render_device()
         await self.shell.open(current)
 
     # Devices
@@ -165,9 +182,9 @@ class Window:
         result = await self.run_blocking(self.session.adb.connect, address)
         output = result.output
         if result.ok and _WIFI_CONNECTED.search(output) and "failed" not in output.lower():
-            self.notify(f"Connected to {address}", success=True)
+            self.notify(t("Connected to {address}", address=address), success=True)
         else:
-            self.notify(output or f"Could not connect to {address}.", error=True)
+            self.notify(output or t("Could not connect to {address}.", address=address), error=True)
         await self.refresh_devices()
 
     # Platform-tools
@@ -207,11 +224,11 @@ class Window:
         first_time = not managed_executable().is_file()
         screen = SetupView(
             self,
-            title="Updating scrcpy",
-            body="Downloads scrcpy so the phone's screen can be mirrored and controlled.",
+            title=t("Updating scrcpy"),
+            body=t("Downloads scrcpy so the phone's screen can be mirrored and controlled."),
             retry=lambda: decide(True),
             skip=lambda: decide(False),
-            skip_label="Continue without scrcpy" if first_time else "Keep the current version",
+            skip_label=t("Continue without scrcpy") if first_time else t("Keep the current version"),
         )
         self._covered = True
         self.page.controls = [screen.control]
@@ -287,7 +304,42 @@ class Window:
         try:
             ensure_on_path(paths.platform_tools_dir())
         except OSError as error:
-            self.notify(f"Could not add platform-tools to PATH: {error}", error=True)
+            self.notify(t("Could not add platform-tools to PATH: {error}", error=error), error=True)
+
+    # Helpers for screens
+
+    @property
+    def busy(self) -> bool:
+        """True while a long job (install, transfer, sideload, flash) is running."""
+        return self._jobs > 0
+
+    async def run_job(self, func: Callable[..., T], *args: Any, on_tick: Callable[[], None] | None = None,
+                      **kwargs: Any) -> T:
+        """run_blocking for a long job. While it runs, the busy flag is set and settings are locked."""
+        self._jobs += 1
+        try:
+            return await self.run_blocking(func, *args, on_tick=on_tick, **kwargs)
+        finally:
+            self._jobs -= 1
+
+    def _picker(self) -> ft.FilePicker:
+        # Created on first use and registered as a page service, the way UrlLauncher is.
+        if self._file_picker is None:
+            self._file_picker = ft.FilePicker()
+            self.page.services.append(self._file_picker)
+            self.page.update()
+        return self._file_picker
+
+    async def pick_files(self, *, title: str, extensions: list[str] | None) -> list[str]:
+        """Let the user choose one file. Returns its path, or an empty list if they cancel."""
+        picked = await self._picker().pick_files(dialog_title=title, allowed_extensions=extensions)
+        return [item.path for item in picked or [] if item.path]
+
+    async def pick_folder(self, title: str) -> str | None:
+        return await self._picker().get_directory_path(dialog_title=title)
+
+    async def pick_save_path(self, *, title: str, file_name: str, extensions: list[str]) -> str | None:
+        return await self._picker().save_file(dialog_title=title, file_name=file_name, allowed_extensions=extensions)
 
     # Helpers for screens
 

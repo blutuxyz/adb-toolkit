@@ -89,7 +89,7 @@ def test_a_package_keeps_its_letter_colour_between_runs():
     assert letter_hue("com.android.chrome") == letter_hue("com.android.chrome")
 
 
-def test_letter_tiles_only_use_identity_hues():
+def test_package_tiles_only_use_identity_hues():
     packages = ["com.android.chrome", "com.spotify.music", "org.telegram.messenger", "com.example.notes"]
 
     hues = {letter_hue(package) for package in packages}
