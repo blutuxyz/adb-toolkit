@@ -3,11 +3,30 @@
 from adb_toolkit.core.devices import Device, parse_adb_devices
 from adb_toolkit.core.packages import AppEntry, build_entries, parse_package_list
 from adb_toolkit.core.platform_tools import find_tool
-from adb_toolkit.core.process import CommandResult, run
+from collections.abc import Callable
+
+from adb_toolkit.core.process import CommandResult, run, stream
+
+# Where screenshots and recordings are written on the phone before they are pulled to the PC.
+PHONE_SCREENSHOT = "/sdcard/adb-toolkit-screenshot.png"
+PHONE_RECORDING = "/sdcard/adb-toolkit-recording.mp4"
+# The phone stops a recording at this length, whatever is asked for.
+MAX_RECORDING_SECONDS = 180
+
+LineHandler = Callable[[str], None]
 
 
 class AdbError(RuntimeError):
     """A command adb needed to answer did not succeed."""
+
+
+def install_succeeded(output: str) -> bool:
+    return "Success" in output
+
+
+def sideload_succeeded(output: str) -> bool:
+    """adb prints a transfer total when a sideload completes. It can exit non-zero after a good transfer."""
+    return "Total xfer" in output
 
 
 class Adb:
@@ -61,3 +80,39 @@ class Adb:
 
     def kill_server(self) -> CommandResult:
         return self._run("kill-server", timeout=10)
+
+    # Long commands: no time limit, and each output line goes to on_line as it arrives.
+
+    def _stream(self, *args: str, on_line: LineHandler | None = None) -> CommandResult:
+        return stream([self.executable, *args], on_line or (lambda _line: None))
+
+    def install_apk(self, serial: str, apk: str, on_line: LineHandler | None = None) -> CommandResult:
+        """Install an APK over the app that is there, keeping its data (-r)."""
+        return self._stream("-s", serial, "install", "-r", apk, on_line=on_line)
+
+    def push(self, serial: str, local: str, remote: str, on_line: LineHandler | None = None) -> CommandResult:
+        return self._stream("-s", serial, "push", local, remote, on_line=on_line)
+
+    def pull(self, serial: str, remote: str, local: str, on_line: LineHandler | None = None) -> CommandResult:
+        return self._stream("-s", serial, "pull", remote, local, on_line=on_line)
+
+    def sideload(self, serial: str, package: str, on_line: LineHandler | None = None) -> CommandResult:
+        """Send a ROM or update ZIP to a phone in recovery's 'Apply update from ADB' mode."""
+        return self._stream("-s", serial, "sideload", package, on_line=on_line)
+
+    def screenshot(self, serial: str, local: str) -> CommandResult:
+        """Save what the screen shows as a PNG. The copy on the phone is deleted afterwards."""
+        self._run("-s", serial, "shell", "screencap", "-p", PHONE_SCREENSHOT, timeout=30)
+        pulled = self.pull(serial, PHONE_SCREENSHOT, local)
+        self._run("-s", serial, "shell", "rm", "-f", PHONE_SCREENSHOT, timeout=15)
+        return pulled
+
+    def record(self, serial: str, local: str, seconds: int, on_line: LineHandler | None = None) -> CommandResult:
+        """Record the screen for a number of seconds, then pull the MP4. The copy on the phone is deleted."""
+        seconds = max(1, min(int(seconds), MAX_RECORDING_SECONDS))
+        self._stream(
+            "-s", serial, "shell", "screenrecord", "--time-limit", str(seconds), PHONE_RECORDING, on_line=on_line
+        )
+        pulled = self.pull(serial, PHONE_RECORDING, local)
+        self._run("-s", serial, "shell", "rm", "-f", PHONE_RECORDING, timeout=15)
+        return pulled

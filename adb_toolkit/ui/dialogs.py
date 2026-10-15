@@ -7,13 +7,14 @@ import flet as ft
 
 from adb_toolkit.ui.theme import (
     CONTROL_HEIGHT,
-    FONT_SEMIBOLD,
     MEASURE_WIDTH,
     RADIUS_CARD,
+    RADIUS_CONTROL,
     SPACE_L,
     TYPE_TITLE,
     palette,
 )
+from adb_toolkit.ui.i18n import t
 from adb_toolkit.ui.widgets import button, icon_tile, text
 
 # host:port, for example 192.168.1.20:5555
@@ -31,9 +32,10 @@ def dialog_frame(
     """A modal dialog: an icon tile and title, the body at the standard measure, and the buttons."""
     return ft.AlertDialog(
         modal=True,
+        bgcolor=palette().panel,
         shape=ft.RoundedRectangleBorder(radius=RADIUS_CARD),
         title=ft.Row(
-            [icon_tile(icon, hue), text(title, size=TYPE_TITLE, font=FONT_SEMIBOLD)],
+            [icon_tile(icon, hue), text(title, size=TYPE_TITLE, strong=True)],
             spacing=SPACE_L,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
         ),
@@ -70,7 +72,7 @@ def confirm(
             title=title,
             body=[text(message, color=palette().muted)],
             actions=[
-                button("text", "Cancel", on_click=close),
+                button("text", t("Cancel"), on_click=close),
                 button("danger" if destructive else "filled", action_label, on_click=accept),
             ],
         )
@@ -80,12 +82,12 @@ def confirm(
 def show_connect_wifi_dialog(page: ft.Page, on_connect: Callable[[str], None]) -> None:
     colors = palette()
     field = ft.TextField(
-        label="Address",
+        label=t("Address"),
         hint_text="192.168.1.20:5555",
         width=MEASURE_WIDTH,
         autofocus=True,
         height=CONTROL_HEIGHT,
-        border_radius=CONTROL_HEIGHT / 2,
+        border_radius=RADIUS_CONTROL,
         border_color=colors.control_border,
         focused_border_color=colors.accent,
         cursor_color=colors.accent,
@@ -94,7 +96,7 @@ def show_connect_wifi_dialog(page: ft.Page, on_connect: Callable[[str], None]) -
     def submit(_=None) -> None:
         address = (field.value or "").strip()
         if not _WIFI_ADDRESS.match(address):
-            field.error = "Enter an address like 192.168.1.20:5555."
+            field.error = t("Enter an address like 192.168.1.20:5555.")
             page.update()
             return
         page.pop_dialog()
@@ -105,11 +107,11 @@ def show_connect_wifi_dialog(page: ft.Page, on_connect: Callable[[str], None]) -
         dialog_frame(
             icon=ft.Icons.WIFI,
             hue="accent",
-            title="Connect over Wi-Fi",
-            body=[text("Enter the address shown under Wireless debugging.", color=colors.muted), field],
+            title=t("Connect over Wi-Fi"),
+            body=[text(t("Enter the address shown under Wireless debugging."), color=colors.muted), field],
             actions=[
-                button("text", "Cancel", on_click=lambda _: page.pop_dialog()),
-                button("filled", "Connect", on_click=submit),
+                button("text", t("Cancel"), on_click=lambda _: page.pop_dialog()),
+                button("filled", t("Connect"), on_click=submit),
             ],
         )
     )

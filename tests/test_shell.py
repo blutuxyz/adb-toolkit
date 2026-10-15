@@ -29,6 +29,7 @@ def _shell(monkeypatch) -> Shell:
         session=session,
         page=SimpleNamespace(run_task=lambda *args, **kwargs: None),
         update=lambda: None,
+        busy=False,
     )
     return Shell(window)
 

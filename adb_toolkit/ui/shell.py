@@ -1,4 +1,4 @@
-"""Main layout: sidebar on the left, top bar above the content area."""
+"""Main layout: the sidebar on the left, and the open screen beside it."""
 
 from __future__ import annotations
 
@@ -7,12 +7,14 @@ from typing import TYPE_CHECKING
 import flet as ft
 
 from adb_toolkit.ui.sidebar import Sidebar
-from adb_toolkit.ui.theme import GUTTER, MOTION_SCREEN_MS, SECTION_GAP, SPACE_XL, palette
-from adb_toolkit.ui.topbar import TopBar
+from adb_toolkit.ui.theme import GUTTER, MOTION_SCREEN_MS, palette
 from adb_toolkit.ui.views.about import AboutView
 from adb_toolkit.ui.views.adb_tools import AdbToolsView
 from adb_toolkit.ui.views.apps import AppsView
+from adb_toolkit.ui.views.capture import CaptureView
+from adb_toolkit.ui.views.console import ConsoleView
 from adb_toolkit.ui.views.fastboot_tools import FastbootToolsView
+from adb_toolkit.ui.views.files import FilesView
 from adb_toolkit.ui.views.settings import SettingsView
 from adb_toolkit.ui.views.updates import UpdatesView
 
@@ -28,15 +30,18 @@ class Shell:
             "apps": AppsView(window),
             "adb": AdbToolsView(window),
             "fastboot": FastbootToolsView(window),
+            "files": FilesView(window),
+            "capture": CaptureView(window),
+            "console": ConsoleView(window),
             "settings": SettingsView(window),
             "updates": UpdatesView(window),
             "about": AboutView(window),
         }
-        self.sidebar = Sidebar(lambda key: window.page.run_task(self.open, key)) # type: ignore
-        self.topbar = TopBar(
-            on_pick=lambda serial: window.page.run_task(window.select_device, serial), # type: ignore
+        self.sidebar = Sidebar(
+            on_select=lambda key: window.page.run_task(self.open, key),  # type: ignore
+            on_pick=lambda serial: window.page.run_task(window.select_device, serial),  # type: ignore
             on_connect=lambda: window.connect_over_wifi_dialog(),
-            on_refresh=lambda: window.page.run_task(window.refresh_devices), # type: ignore
+            on_refresh=lambda: window.page.run_task(window.refresh_devices),  # type: ignore
         )
         # The switcher only animates when the content's key changes, so each screen gets its own key below.
         self._switcher = ft.AnimatedSwitcher(
@@ -52,18 +57,15 @@ class Shell:
             view.control.key = key
         self._body = ft.Container(
             expand=True,
-            padding=ft.Padding.only(left=GUTTER, right=GUTTER, top=SECTION_GAP, bottom=SPACE_XL),
+            bgcolor=palette().background,
+            padding=ft.Padding.all(GUTTER),
             content=self._switcher,
         )
-        colors = palette()
         self.root = ft.Row(
-            [
-                self.sidebar.control,
-                ft.Container(width=1, bgcolor=colors.line),
-                ft.Column([self.topbar.control, self._body], expand=True, spacing=0),
-            ],
+            [self.sidebar.control, self._body],
             expand=True,
             spacing=0,
+            vertical_alignment=ft.CrossAxisAlignment.STRETCH,
         )
 
     async def open(self, key: str) -> None:
@@ -77,11 +79,11 @@ class Shell:
 
     async def devices_changed(self) -> None:
         """Redraw the device picker and let the open screen react."""
-        self.topbar.show(self.window.session)
+        self.render_device()
         await self.views[self.current].on_devices_changed()
 
-    def render_topbar(self) -> None:
-        self.topbar.show(self.window.session)
+    def render_device(self) -> None:
+        self.sidebar.show_device(self.window.session)
 
     def scrcpy_changed(self) -> None:
         """scrcpy was installed or updated. The screen section shows whether it can start."""
