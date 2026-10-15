@@ -81,7 +81,14 @@ class Session:
             self.selected_serial = serial
 
     def set_theme_mode(self, mode: str) -> None:
-        self.settings.theme_mode = mode
+        self.set_settings(theme_mode=mode)
+
+    def set_settings(self, **changes: str) -> None:
+        """Change one or more settings and save them. Unknown names are an error."""
+        for name, value in changes.items():
+            if not hasattr(self.settings, name):
+                raise ValueError(f"unknown setting: {name}")
+            setattr(self.settings, name, value)
         try:
             settings.save(self.settings_path, self.settings)
         except OSError as error:
